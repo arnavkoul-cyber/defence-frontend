@@ -10,6 +10,7 @@ function Login() {
     try {
       const res = await api.post('/auth/login', { mobile_number: mobile });
       localStorage.setItem('officer_id', res.data.officer_id);
+      localStorage.setItem('userId', res.data.user.id);
       navigate('/dashboard');
     } catch (err) {
       alert('Login failed!');
@@ -17,17 +18,20 @@ function Login() {
   };
 
   return (
-    <div className="flex items-center justify-center h-screen bg-gray-100">
-      <div className="bg-white p-6 rounded shadow-md w-80">
-        <h2 className="text-lg font-bold mb-4">Login</h2>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-100 via-blue-200 to-blue-400">
+      <div className="bg-white p-8 rounded-2xl shadow-2xl border border-gray-100 w-full max-w-xs animate-fade-in">
+        <h2 className="text-2xl font-extrabold mb-6 text-center text-blue-700 tracking-wide">Login</h2>
         <input
           type="text"
           placeholder="Mobile Number"
           value={mobile}
           onChange={(e) => setMobile(e.target.value)}
-          className="w-full p-2 mb-4 border rounded"
+          className="w-full p-3 mb-5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 transition text-base"
         />
-        <button onClick={handleLogin} className="w-full bg-green-600 text-white p-2 rounded hover:bg-green-700">
+        <button
+          onClick={handleLogin}
+          className="w-full bg-gradient-to-r from-green-600 to-green-400 text-white px-6 py-2 rounded-lg font-bold shadow-lg hover:from-green-700 hover:to-green-500 transition"
+        >
           Login
         </button>
       </div>
