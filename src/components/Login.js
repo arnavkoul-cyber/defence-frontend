@@ -13,6 +13,8 @@ function Login() {
       const res = await api.post('/auth/login', { mobile_number: mobile });
       localStorage.setItem('officer_id', res.data.officer_id);
       localStorage.setItem('userId', res.data.user.id);
+      localStorage.setItem('army_unit_id', res.data.user.army_unit_id);
+      localStorage.setItem('mobile_number', res.data.user.mobile_number);
       toast.success('Login successful!', { position: 'top-center', autoClose: 2000 });
       setTimeout(() => navigate('/dashboard'), 1200);
     } catch (err) {
@@ -39,6 +41,12 @@ function Login() {
           Login
         </button>
       </div>
+       <footer className="w-full fixed bottom-0 left-0 bg-gradient-to-r from-blue-700 via-blue-500 to-blue-700 text-white text-center py-3 text-base z-50 shadow-lg border-t border-blue-300" style={{letterSpacing: '0.5px'}}>
+        <div className="flex flex-col items-center justify-center">
+         
+          <span className="text-xs mt-1">Copyright © 2025 All Rights Reserved - <span className="font-black text-white drop-shadow-lg tracking-widest uppercase text-base sm:text-md">Jammu & Kashmir e-Governance Agency</span></span>
+        </div>
+      </footer>
     </div>
   );
 }

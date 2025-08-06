@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
+import Select from 'react-select';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import api from '../api/api';
@@ -11,7 +11,6 @@ function LabourForm() {
     sector_id: '',
     contact_number: '',
     aadhaar_number: '',
-    photo_path: '',
   });
   const [sectors, setSectors] = useState([]);
   const [errors, setErrors] = useState({});
@@ -20,44 +19,6 @@ function LabourForm() {
   const [showCamera, setShowCamera] = useState(false);
   const videoRef = React.useRef(null);
   const canvasRef = React.useRef(null);
-
-  // Fetch sectors list on component mount
-  useEffect(() => {
-    const fetchSectors = async () => {
-      try {
-        const response = await api.get('/dynamic/sectors');
-        setSectors(response.data.data); // sectors array
-      } catch (err) {
-        console.error('Error fetching sectors:', err);
-      }
-    };
-    fetchSectors();
-  }, []);
-
-  const validate = () => {
-    const newErrors = {};
-    if (!formData.name.trim()) newErrors.name = 'Name is required.';
-    if (!formData.father_name.trim()) newErrors.father_name = 'Father name is required.';
-    // Sector selection is now optional; no validation
-    if (!formData.contact_number.trim()) {
-      newErrors.contact_number = 'Contact number is required.';
-    } else if (!/^\d{10}$/.test(formData.contact_number.trim())) {
-      newErrors.contact_number = 'Contact number must be 10 digits.';
-    }
-    if (!formData.aadhaar_number.trim()) {
-      newErrors.aadhaar_number = 'Aadhaar number is required.';
-    } else if (!/^\d{12}$/.test(formData.aadhaar_number.trim())) {
-      newErrors.aadhaar_number = 'Aadhaar number must be 12 digits.';
-    }
-    if (!capturedPhoto) newErrors.photo_path = 'Photo capture is required.';
-    return newErrors;
-  };
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    setErrors({ ...errors, [e.target.name]: undefined });
-  };
-
   // Camera logic
   const handleOpenCamera = async () => {
     setShowCamera(true);
@@ -83,7 +44,6 @@ function LabourForm() {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       const dataUrl = canvas.toDataURL('image/png');
       setCapturedPhoto(dataUrl);
-      setFormData(f => ({ ...f, photo_path: '' })); // clear text field if any
       // Stop camera
       if (video.srcObject) {
         video.srcObject.getTracks().forEach(track => track.stop());
@@ -99,6 +59,47 @@ function LabourForm() {
     }
   };
 
+  // Fetch sectors list
+  useEffect(() => {
+    const fetchSectors = async () => {
+      try {
+        const response = await api.get('/dynamic/sectors');
+        setSectors(response.data.data);
+      } catch (err) {
+        console.error('Error fetching sectors:', err);
+      }
+    };
+    fetchSectors();
+  }, []);
+
+  const validate = () => {
+    const newErrors = {};
+    if (!formData.name.trim()) newErrors.name = 'Name is required.';
+    if (!formData.father_name.trim()) newErrors.father_name = 'Father name is required.';
+    if (!formData.contact_number.trim()) {
+      newErrors.contact_number = 'Contact number is required.';
+    } else if (!/^\d{10}$/.test(formData.contact_number.trim())) {
+      newErrors.contact_number = 'Contact number must be 10 digits.';
+    }
+    if (!formData.aadhaar_number.trim()) {
+      newErrors.aadhaar_number = 'Aadhaar number is required.';
+    } else if (!/^\d{12}$/.test(formData.aadhaar_number.trim())) {
+      newErrors.aadhaar_number = 'Aadhaar number must be 12 digits.';
+    }
+    if (!capturedPhoto) newErrors.capturedPhoto = 'Photo capture is required.';
+    return newErrors;
+  };
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setErrors({ ...errors, [e.target.name]: undefined });
+  };
+
+  const handleSectorChange = (selectedOption) => {
+    setFormData({ ...formData, sector_id: selectedOption ? selectedOption.value : '' });
+    setErrors({ ...errors, sector_id: undefined });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const validationErrors = validate();
@@ -108,7 +109,6 @@ function LabourForm() {
     }
     setSubmitting(true);
     try {
-      // Convert sector_id to number before sending
       const payload = {
         ...formData,
         sector_id: Number(formData.sector_id),
@@ -122,7 +122,6 @@ function LabourForm() {
         sector_id: '',
         contact_number: '',
         aadhaar_number: '',
-        photo_path: '',
       });
       setCapturedPhoto(null);
       setErrors({});
@@ -139,12 +138,13 @@ function LabourForm() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-gradient-to-br from-blue-100 via-blue-200 to-blue-400 relative overflow-y-scroll">
+    <div className="min-h-screen flex flex-col justify-between bg-gradient-to-br from-blue-100 via-blue-200 to-blue-400 relative">
       <ToastContainer />
-      <div className="flex flex-1 items-center justify-center mt-2">
+      <div className="flex flex-1 items-center justify-center mt-2 pb-32"> {/* Add bottom padding for footer */}
         <div className="w-full max-w-md p-6 sm:p-8 bg-white rounded-2xl shadow-2xl border border-gray-100 animate-fade-in mb-0">
           <h2 className="text-2xl font-extrabold mb-6 text-center text-blue-700 tracking-wide" style={{marginTop: '2px'}}>Labour Registration</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
+            
             {/* Name */}
             <div>
               <label className="block text-gray-700 font-semibold mb-1">Name:</label>
@@ -176,19 +176,44 @@ function LabourForm() {
             {/* Sector Dropdown */}
             <div>
               <label className="block text-gray-700 font-semibold mb-1">Sector:</label>
-              <select
+              <Select
                 name="sector_id"
-                value={formData.sector_id}
-                onChange={handleChange}
-                className={`w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 transition ${errors.sector_id ? 'border-red-500' : 'border-gray-300'}`}
-              >
-                <option value="">Select Sector</option>
-                {sectors.map((sector) => (
-                  <option key={sector.id} value={sector.id}>
-                    {sector.name}
-                  </option>
-                ))}
-              </select>
+                value={
+                  sectors
+                    .map(sector => ({ value: sector.id, label: sector.name }))
+                    .find(option => option.value === Number(formData.sector_id)) || null
+                }
+                onChange={handleSectorChange}
+                options={sectors.map(sector => ({ value: sector.id, label: sector.name }))}
+                placeholder="Select Sector"
+                isClearable
+                styles={{
+                  control: (base, state) => ({
+                    ...base,
+                    minHeight: '2.2rem',
+                    borderColor: errors.sector_id ? '#f87171' : base.borderColor,
+                    boxShadow: state.isFocused ? '0 0 0 2px #60a5fa' : base.boxShadow,
+                  }),
+                  menu: base => ({
+                    ...base,
+                    maxHeight: 120,   // limit dropdown height
+                    overflowY: 'auto', // enable scrolling
+                    zIndex: 9999,
+                    position: 'relative',
+                  }),
+                  menuList: base => ({
+                     ...base,
+              maxHeight: 120,
+            overflowY: 'auto'
+}),
+                  option: (base, state) => ({
+                    ...base,
+                    paddingTop: 6,
+                    paddingBottom: 6,
+                    fontSize: '0.95rem',
+                  }),
+                }}
+              />
               {errors.sector_id && <p className="text-red-500 text-xs mt-1">{errors.sector_id}</p>}
             </div>
 
@@ -222,7 +247,6 @@ function LabourForm() {
               {errors.aadhaar_number && <p className="text-red-500 text-xs mt-1">{errors.aadhaar_number}</p>}
             </div>
 
-
             {/* Photo */}
             <div>
               <label className="block text-gray-700 font-semibold mb-1">Photo (Capture Required):</label>
@@ -251,10 +275,11 @@ function LabourForm() {
                     <span className="text-xs text-gray-500 mt-1">Photo will be submitted</span>
                   </div>
                 )}
-                {errors.photo_path && <p className="text-red-500 text-xs mt-1">{errors.photo_path}</p>}
+                {errors.capturedPhoto && <p className="text-red-500 text-xs mt-1">{errors.capturedPhoto}</p>}
               </div>
             </div>
 
+            {/* Submit */}
             <button
               type="submit"
               className="w-full bg-gradient-to-r from-blue-600 to-blue-400 text-white px-6 py-2 rounded-lg font-bold shadow-lg hover:from-blue-700 hover:to-blue-500 transition disabled:opacity-60 disabled:cursor-not-allowed mt-2"
@@ -265,8 +290,11 @@ function LabourForm() {
           </form>
         </div>
       </div>
-      <footer className="w-full fixed bottom-0 left-0 bg-[#232323] text-white text-center py-1 text-sm z-50" style={{letterSpacing: '0.5px'}}>
-        Copyright © 2025 - All Rights Reserved - Jammu & Kashmir e-Governance Agency
+      <footer className="w-full fixed bottom-0 left-0 bg-gradient-to-r from-blue-700 via-blue-500 to-blue-700 text-white text-center py-3 text-base z-50 shadow-lg border-t border-blue-300" style={{letterSpacing: '0.5px'}}>
+        <div className="flex flex-col items-center justify-center">
+         
+          <span className="text-xs mt-1">Copyright © 2025 All Rights Reserved - <span className="font-black text-white drop-shadow-lg tracking-widest uppercase text-base sm:text-md">Jammu & Kashmir e-Governance Agency</span></span>
+        </div>
       </footer>
     </div>
   );

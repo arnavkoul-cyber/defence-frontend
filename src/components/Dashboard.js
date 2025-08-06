@@ -3,6 +3,11 @@ import api from '../api/api';
 import Sidebar from './Sidebar';
 
 function Dashboard() {
+  // Determine if this is the Army Dashboard
+  const isArmyDashboard = (() => {
+    const armyUnitId = localStorage.getItem('army_unit_id');
+    return !!armyUnitId && armyUnitId !== "null";
+  })();
   const [labours, setLabours] = useState([]);
   const [selectedLabour, setSelectedLabour] = useState(null);
   const [armyUnitId, setArmyUnitId] = useState('');
@@ -11,9 +16,21 @@ function Dashboard() {
 
   const fetchLabours = async () => {
     try {
+  
+      const armyUnitId = localStorage.getItem('army_unit_id');
+      let tableTile;
+      if (!armyUnitId || armyUnitId === "null") {
+        tableTile = "Labours Management";
+        const res = await api.get(`/labour/${localStorage.getItem('userId')}`);
+        setLabours(res.data.labours || []);
+      } 
+      else {  
+        tableTile = "Labours Details";
+        const res = await api.get(`/labour/assigned/${localStorage.getItem('mobile_number')}`);
+        setLabours(res.data.labours || []);
+      }
 
-      const res = await api.get(`/labour/${localStorage.getItem('userId')}`);
-      setLabours(res.data.labours || []);
+    
     } catch (err) {
       console.error(err);
     }
@@ -70,23 +87,25 @@ function Dashboard() {
     <div className="flex min-h-screen bg-gray-100">
       <Sidebar />
       <div className="flex-1 p-6">
-        <h2 className="text-3xl font-bold mb-6 text-gray-800">Labour Management</h2>
+        <h2 className="text-3xl font-bold mb-6 text-gray-800">
+          {isArmyDashboard ? 'Labourers Details' : 'Labour Management'}
+        </h2>
 
         <div className="overflow-x-auto rounded-lg shadow">
           <table className="min-w-full bg-white border border-gray-300">
             <thead className="bg-blue-600 text-white">
               <tr>
                 <th className="p-3 text-left">Name</th>
-                <th className="p-3 text-left">Father Name</th>
+                {!isArmyDashboard && <th className="p-3 text-left">Father Name</th>}
                 <th className="p-3 text-left">Contact</th>
                 <th className="p-3 text-left">Aadhaar</th>
-                <th className="p-3 text-left">Actions</th>
+                {!isArmyDashboard && <th className="p-3 text-left">Actions</th>}
               </tr>
             </thead>
             <tbody>
               {labours.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="text-center py-4 text-gray-500">No labours found.</td>
+                  <td colSpan={isArmyDashboard ? 3 : 5} className="text-center py-4 text-gray-500">No labours found.</td>
                 </tr>
               ) : (
                 labours.map((labour) => {
@@ -95,23 +114,25 @@ function Dashboard() {
                   return (
                     <tr key={labour.id} className="border-t hover:bg-gray-50 transition duration-150">
                       <td className="p-3">{capitalize(labour.name)}</td>
-                      <td className="p-3">{capitalize(labour.father_name)}</td>
+                      {!isArmyDashboard && <td className="p-3">{capitalize(labour.father_name)}</td>}
                       <td className="p-3">{labour.contact_number}</td>
                       <td className="p-3">{labour.aadhaar_number}</td>
-                      <td className="p-3 flex space-x-2">
-                        <button
-                          onClick={() => handleEdit(labour)}
-                          className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded transition"
-                        >
-                          Assign
-                        </button>
-                        <button
-                          onClick={() => handleDelete(labour.id)}
-                          className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded transition"
-                        >
-                          Delete
-                        </button>
-                      </td>
+                      {!isArmyDashboard && (
+                        <td className="p-3 flex space-x-2">
+                          <button
+                            onClick={() => handleEdit(labour)}
+                            className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded transition"
+                          >
+                            Assign
+                          </button>
+                          <button
+                            onClick={() => handleDelete(labour.id)}
+                            className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded transition"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })

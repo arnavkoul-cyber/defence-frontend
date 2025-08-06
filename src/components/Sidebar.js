@@ -1,11 +1,20 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FiUsers, FiDatabase, FiLogOut, FiHome } from 'react-icons/fi'; // Feather icons from react-icons
+import { FiUsers, FiDatabase, FiLogOut, FiHome, FiCheckSquare } from 'react-icons/fi'; // Feather icons from react-icons
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 function Sidebar() {
   const location = useLocation();
+  let dashboardTitle;
+  const armyUnitId = localStorage.getItem('army_unit_id');
+  const isArmyDashboard = !!armyUnitId && armyUnitId !== "null";
+  if (!isArmyDashboard) {
+    dashboardTitle = "Defence Dashboard";
+  } else {
+    dashboardTitle = "Army Dashboard";
+  }
+  
 
   const linkClasses = (path) =>
     `flex items-center space-x-2 px-4 py-2 rounded-md transition-all ${
@@ -25,19 +34,43 @@ function Sidebar() {
   return (
     <div className="w-60 bg-gray-900 text-white h-screen p-4 shadow-lg">
       <ToastContainer />
-      <h3 className="text-2xl font-bold mb-8 text-center flex items-center justify-center gap-2">
-        <FiHome className="inline-block mb-1 text-3xl" />
-        <span>Dashboard</span>
-      </h3>
+      <div className="mb-8 flex flex-col items-center justify-center">
+        <FiHome className="text-4xl mb-2" />
+        <span
+          className="text-3xl font-extrabold text-center bg-gradient-to-r from-blue-400 via-blue-600 to-blue-800 bg-clip-text text-transparent drop-shadow-lg tracking-wide"
+          style={{ letterSpacing: '1px', lineHeight: 1.1 }}
+        >
+          {dashboardTitle.split(' ')[0]}
+        </span>
+        <span
+          className="text-xl font-bold text-center text-gray-200 tracking-wide mt-0.5"
+          style={{ letterSpacing: '0.5px' }}
+        >
+          {dashboardTitle.split(' ')[1]}
+        </span>
+      </div>
       <nav className="space-y-2">
         <Link to="/dashboard" className={linkClasses('/dashboard')}>
           <FiUsers />
-          <span>Users</span>
+          <span>{isArmyDashboard ? 'Labourers Details' : 'Users'}</span>
         </Link>
-        <Link to="/unitData" className={linkClasses('/unitData')}>
-          <FiDatabase />
-          <span>Army Unit Data</span>
-        </Link>
+        {isArmyDashboard ? (
+          <Link to="/attendance" className={linkClasses('/attendance')}>
+            <FiCheckSquare />
+            <span>Attendance</span>
+          </Link>
+        ) : (
+          <Link to="/unitData" className={linkClasses('/unitData')}>
+            <FiDatabase />
+            <span>Army Unit Data</span>
+          </Link>
+        )}
+        {isArmyDashboard && (
+          <Link to="/attendanceDetails" className={linkClasses('/attendanceDetails')}>
+            <FiCheckSquare />
+            <span>Attendance Details</span>
+          </Link>
+        )}
         <button
           onClick={handleLogout}
           className={linkClasses('/login') + ' w-full text-left flex items-center'}

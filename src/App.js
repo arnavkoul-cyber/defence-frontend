@@ -4,7 +4,8 @@ import LabourForm from './components/LabourForm';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import UnitData from './components/unitData';
-
+import Attendance from './components/attendance';
+import AttendanceDetails from './components/attendanceDetails';
 function App() {
   return (
     <Router>
@@ -13,6 +14,8 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/unitData" element={<UnitData />} />
+        <Route path="/attendance" element={<Attendance />} />
+        <Route path="/attendanceDetails" element={<AttendanceDetails />} />
       </Routes>
     </Router>
   );
