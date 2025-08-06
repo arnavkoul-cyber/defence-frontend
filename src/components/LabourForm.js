@@ -16,6 +16,10 @@ function LabourForm() {
   const [sectors, setSectors] = useState([]);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [capturedPhoto, setCapturedPhoto] = useState(null);
+  const [showCamera, setShowCamera] = useState(false);
+  const videoRef = React.useRef(null);
+  const canvasRef = React.useRef(null);
 
   // Fetch sectors list on component mount
   useEffect(() => {
@@ -45,13 +49,54 @@ function LabourForm() {
     } else if (!/^\d{12}$/.test(formData.aadhaar_number.trim())) {
       newErrors.aadhaar_number = 'Aadhaar number must be 12 digits.';
     }
-    if (!formData.photo_path.trim()) newErrors.photo_path = 'Photo URL or file path is required.';
+    if (!capturedPhoto) newErrors.photo_path = 'Photo capture is required.';
     return newErrors;
   };
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     setErrors({ ...errors, [e.target.name]: undefined });
+  };
+
+  // Camera logic
+  const handleOpenCamera = async () => {
+    setShowCamera(true);
+    setTimeout(async () => {
+      if (videoRef.current) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          videoRef.current.srcObject = stream;
+        } catch (err) {
+          toast.error('Camera access denied');
+        }
+      }
+    }, 100);
+  };
+
+  const handleCapturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/png');
+      setCapturedPhoto(dataUrl);
+      setFormData(f => ({ ...f, photo_path: '' })); // clear text field if any
+      // Stop camera
+      if (video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+      }
+      setShowCamera(false);
+    }
+  };
+
+  const handleCloseCamera = () => {
+    setShowCamera(false);
+    if (videoRef.current && videoRef.current.srcObject) {
+      videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -66,7 +111,8 @@ function LabourForm() {
       // Convert sector_id to number before sending
       const payload = {
         ...formData,
-        sector_id: Number(formData.sector_id)
+        sector_id: Number(formData.sector_id),
+        photo_base64: capturedPhoto || undefined,
       };
       await api.post('/labour/register', payload);
       toast.success('Labour registered successfully!', { position: 'top-center', autoClose: 2500 });
@@ -78,6 +124,7 @@ function LabourForm() {
         aadhaar_number: '',
         photo_path: '',
       });
+      setCapturedPhoto(null);
       setErrors({});
     } catch (err) {
       console.error('Error:', err);
@@ -175,18 +222,37 @@ function LabourForm() {
               {errors.aadhaar_number && <p className="text-red-500 text-xs mt-1">{errors.aadhaar_number}</p>}
             </div>
 
+
             {/* Photo */}
             <div>
-              <label className="block text-gray-700 font-semibold mb-1">Photo (URL or File Path):</label>
-              <input
-                type="text"
-                name="photo_path"
-                value={formData.photo_path}
-                onChange={handleChange}
-                className={`w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 transition ${errors.photo_path ? 'border-red-500' : 'border-gray-300'}`}
-                placeholder="Paste image URL or file path"
-              />
-              {errors.photo_path && <p className="text-red-500 text-xs mt-1">{errors.photo_path}</p>}
+              <label className="block text-gray-700 font-semibold mb-1">Photo (Capture Required):</label>
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-1 rounded w-fit"
+                  onClick={handleOpenCamera}
+                  disabled={showCamera}
+                >
+                  Capture Photo
+                </button>
+                {showCamera && (
+                  <div className="flex flex-col items-center gap-2 mt-2">
+                    <video ref={videoRef} autoPlay className="rounded border w-48 h-36 object-cover" />
+                    <div className="flex gap-2">
+                      <button type="button" className="bg-green-600 text-white px-3 py-1 rounded" onClick={handleCapturePhoto}>Take Photo</button>
+                      <button type="button" className="bg-gray-400 text-white px-3 py-1 rounded" onClick={handleCloseCamera}>Cancel</button>
+                    </div>
+                  </div>
+                )}
+                <canvas ref={canvasRef} style={{ display: 'none' }} />
+                {capturedPhoto && (
+                  <div className="mt-2 flex flex-col items-center">
+                    <img src={capturedPhoto} alt="Captured" className="rounded border w-32 h-24 object-cover" />
+                    <span className="text-xs text-gray-500 mt-1">Photo will be submitted</span>
+                  </div>
+                )}
+                {errors.photo_path && <p className="text-red-500 text-xs mt-1">{errors.photo_path}</p>}
+              </div>
             </div>
 
             <button
