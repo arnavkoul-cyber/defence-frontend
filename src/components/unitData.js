@@ -59,19 +59,22 @@ function UnitData() {
                   </td>
                 </tr>
               ) : (
-                labours.map(labour => (
-                  <tr
-                    key={labour.id}
-                    className="border-t hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="px-5 py-3">{labour.name}</td>
-                    <td className="px-5 py-3">{labour.father_name}</td>
-                    <td className="px-5 py-3">{labour.contact_number}</td>
-                    <td className="px-5 py-3">{labour.aadhaar_number}</td>
-                    <td className="px-5 py-3">{getSectorName(labour.sector_id)}</td>
-                    <td className="px-5 py-3">{getArmyUnitName(labour.army_unit_id)}</td>
-                  </tr>
-                ))
+                labours.map(labour => {
+                  const capitalize = (str) => str && typeof str === 'string' ? str.charAt(0).toUpperCase() + str.slice(1) : str;
+                  return (
+                    <tr
+                      key={labour.id}
+                      className="border-t hover:bg-gray-50 transition-colors"
+                    >
+                      <td className="px-5 py-3">{capitalize(labour.name)}</td>
+                      <td className="px-5 py-3">{capitalize(labour.father_name)}</td>
+                      <td className="px-5 py-3">{labour.contact_number}</td>
+                      <td className="px-5 py-3">{labour.aadhaar_number}</td>
+                      <td className="px-5 py-3">{getSectorName(labour.sector_id)}</td>
+                      <td className="px-5 py-3">{getArmyUnitName(labour.army_unit_id)}</td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

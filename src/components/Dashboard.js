@@ -89,28 +89,32 @@ function Dashboard() {
                   <td colSpan="5" className="text-center py-4 text-gray-500">No labours found.</td>
                 </tr>
               ) : (
-                labours.map((labour) => (
-                  <tr key={labour.id} className="border-t hover:bg-gray-50 transition duration-150">
-                    <td className="p-3">{labour.name}</td>
-                    <td className="p-3">{labour.father_name}</td>
-                    <td className="p-3">{labour.contact_number}</td>
-                    <td className="p-3">{labour.aadhaar_number}</td>
-                    <td className="p-3 flex space-x-2">
-                      <button
-                        onClick={() => handleEdit(labour)}
-                        className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded transition"
-                      >
-                        Assign
-                      </button>
-                      <button
-                        onClick={() => handleDelete(labour.id)}
-                        className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded transition"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                labours.map((labour) => {
+                  // Capitalize first letter utility
+                  const capitalize = (str) => str && typeof str === 'string' ? str.charAt(0).toUpperCase() + str.slice(1) : str;
+                  return (
+                    <tr key={labour.id} className="border-t hover:bg-gray-50 transition duration-150">
+                      <td className="p-3">{capitalize(labour.name)}</td>
+                      <td className="p-3">{capitalize(labour.father_name)}</td>
+                      <td className="p-3">{labour.contact_number}</td>
+                      <td className="p-3">{labour.aadhaar_number}</td>
+                      <td className="p-3 flex space-x-2">
+                        <button
+                          onClick={() => handleEdit(labour)}
+                          className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded transition"
+                        >
+                          Assign
+                        </button>
+                        <button
+                          onClick={() => handleDelete(labour.id)}
+                          className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded transition"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

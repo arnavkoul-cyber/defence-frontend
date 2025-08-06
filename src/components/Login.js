@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import api from '../api/api';
 import { useNavigate } from 'react-router-dom';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 function Login() {
   const [mobile, setMobile] = useState('');
@@ -11,14 +13,16 @@ function Login() {
       const res = await api.post('/auth/login', { mobile_number: mobile });
       localStorage.setItem('officer_id', res.data.officer_id);
       localStorage.setItem('userId', res.data.user.id);
-      navigate('/dashboard');
+      toast.success('Login successful!', { position: 'top-center', autoClose: 2000 });
+      setTimeout(() => navigate('/dashboard'), 1200);
     } catch (err) {
-      alert('Login failed!');
+      toast.error('Login failed!', { position: 'top-center', autoClose: 2000 });
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-100 via-blue-200 to-blue-400">
+      <ToastContainer />
       <div className="bg-white p-8 rounded-2xl shadow-2xl border border-gray-100 w-full max-w-xs animate-fade-in">
         <h2 className="text-2xl font-extrabold mb-6 text-center text-blue-700 tracking-wide">Login</h2>
         <input
