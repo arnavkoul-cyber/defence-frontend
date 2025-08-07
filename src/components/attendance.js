@@ -7,7 +7,14 @@ const Attendance = () => {
   const [photoData, setPhotoData] = useState({}); // { [labourId]: base64 }
   const [showCamera, setShowCamera] = useState({}); // { [labourId]: true/false }
   const [submitting, setSubmitting] = useState({}); // { [labourId]: true/false }
-  const [marked, setMarked] = useState({}); // { [labourId]: true }
+  const [marked, setMarked] = useState(() => {
+    try {
+      const stored = localStorage.getItem('attendance_marked');
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  }); // { [labourId]: true }
   const [toast, setToast] = useState({ show: false, message: '', success: true });
   const videoRefs = useRef({});
   const canvasRefs = useRef({});
@@ -89,12 +96,17 @@ const Attendance = () => {
         const blob = dataURLtoBlob(base64);
         formData.append('photo', blob, 'photo.png');
       }
+      formData.append('status', 1);
       const res = await api.post('/attendance/mark', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       if (res.data && res.data.message === 'Attendance marked successfully') {
         setToast({ show: true, message: 'Attendance marked', success: true });
-        setMarked(prev => ({ ...prev, [labourId]: true }));
+        setMarked(prev => {
+          const updated = { ...prev, [labourId]: true };
+          localStorage.setItem('attendance_marked', JSON.stringify(updated));
+          return updated;
+        });
       } else {
         setToast({ show: true, message: 'Attendance not marked', success: false });
       }
@@ -131,6 +143,7 @@ const Attendance = () => {
                 <th className="px-4 py-2 text-left font-semibold">Attendance Date</th>
                 <th className="px-4 py-2 text-left font-semibold">Photo Upload</th>
                 <th className="px-4 py-2 text-left font-semibold">Mark Attendance</th>
+                <th className="px-4 py-2 text-left font-semibold">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -177,6 +190,13 @@ const Attendance = () => {
                     >
                       {submitting[labour.id] ? 'Submitting...' : 'Submit'}
                     </button>
+                  </td>
+                  <td className="px-4 py-2">
+                    {marked[labour.id] ? (
+                      <span className="text-green-600 font-semibold">Present</span>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
                   </td>
                 </tr>
               ))}
