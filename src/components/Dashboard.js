@@ -125,12 +125,7 @@ function Dashboard() {
                           >
                             Assign
                           </button>
-                          <button
-                            onClick={() => handleDelete(labour.id)}
-                            className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded transition"
-                          >
-                            Delete
-                          </button>
+                      
                         </td>
                       )}
                     </tr>

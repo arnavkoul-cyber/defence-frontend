@@ -7,6 +7,11 @@ const AttendanceDetails = () => {
   const [attendances, setAttendances] = useState([]);
   const [filterDate, setFilterDate] = useState('');
   const [filterLabourId, setFilterLabourId] = useState('');
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const entriesPerPage = 5;
+  const totalPages = Math.ceil(attendances.length / entriesPerPage);
+  const paginatedAttendances = attendances.slice((currentPage - 1) * entriesPerPage, currentPage * entriesPerPage);
 
   useEffect(() => {
     const fetchAttendances = async () => {
@@ -23,6 +28,7 @@ const AttendanceDetails = () => {
           res = await api.get(`/attendance/army/${army_unit_id}`);
         }
         setAttendances(res.data.attendances || []);
+        console.log(res.data.attendances);
       } catch (err) {
         // handle error
       }
@@ -102,7 +108,7 @@ const AttendanceDetails = () => {
               {attendances.length === 0 ? (
                 <tr><td colSpan={4} className="text-center py-4">No attendance records found.</td></tr>
               ) : (
-                attendances.map((a) => (
+                paginatedAttendances.map((a) => (
                   <tr key={a.id} className="border-b">
                     <td className="px-4 py-2">{a.labour_name}</td>
                     <td className="px-4 py-2">{formatDate(a.attendance_date)}</td>
@@ -110,17 +116,44 @@ const AttendanceDetails = () => {
                     <td className="px-4 py-2">
                       {a.photo_path ? (
                         <img
-                          src={a.photo_path.startsWith('http') ? a.photo_path : `/` + a.photo_path.replace(/\\/g, '/')}
+                          src={a.photo_path.startsWith('http')
+                            ? a.photo_path
+                            : `http://10.149.84.153:5000/${a.photo_path}`}
                           alt="Attendance"
-                          className="rounded border w-20 h-16 object-cover"
+                          className="w-16 h-16 object-cover rounded shadow border border-gray-200"
+                          onError={e => { e.target.onerror = null; e.target.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
                         />
                       ) : (
-                        <span className="text-gray-400">No Photo</span>
+                        <img
+                          src="https://img.icons8.com/fluency/48/no-image.png"
+                          alt="No Photo"
+                          className="w-16 h-16 object-cover rounded shadow border border-gray-200"
+                        />
                       )}
                     </td>
                   </tr>
                 ))
               )}
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center mt-4 gap-2">
+            <button
+              className="px-3 py-1 rounded bg-blue-100 text-blue-700 font-semibold disabled:opacity-50"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            >
+              Prev
+            </button>
+            <span className="mx-2 text-base font-medium">Page {currentPage} of {totalPages}</span>
+            <button
+              className="px-3 py-1 rounded bg-blue-100 text-blue-700 font-semibold disabled:opacity-50"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+            >
+              Next
+            </button>
+          </div>
+        )}
             </tbody>
           </table>
         </div>

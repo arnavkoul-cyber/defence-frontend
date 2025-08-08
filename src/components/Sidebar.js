@@ -26,7 +26,11 @@ function Sidebar() {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    localStorage.clear();
+    // Only remove authentication-related keys, not attendance_marked
+    localStorage.removeItem('mobile_number');
+    localStorage.removeItem('army_unit_id');
+    localStorage.removeItem('auth_token');
+    // Add/remove other keys as needed, but keep attendance_marked
     toast.success('Logged out successfully!', { position: 'top-center', autoClose: 2000 });
     setTimeout(() => navigate('/login'), 1200);
   };
