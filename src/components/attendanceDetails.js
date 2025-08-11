@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import Sidebar from './Sidebar';
+import Header from './Header';
+import Footer from './footer';
 import api from '../api/api';
+import { FiFileText } from 'react-icons/fi';
 
 
 const AttendanceDetails = () => {
@@ -49,12 +52,20 @@ const AttendanceDetails = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
-      <div className="flex-shrink-0">
-        <Sidebar />
-      </div>
-      <div className="flex-1 p-6 overflow-x-auto">
-        <h2 className="text-2xl font-bold mb-6 text-blue-700">Attendance Details</h2>
+    <div className="min-h-screen flex flex-col bg-gray-100">
+      <Header bgColor="#261d1a" />
+      <div className="flex flex-1">
+        <Sidebar bgColor="#261d1a" />
+        <div className="flex-1 px-6 pt-2 overflow-x-auto pb-24 ml-60 mt-1">
+        <div className="mb-5">
+          <div className="flex items-end gap-3">
+            <span className="h-10 w-10 rounded-full bg-blue-100 ring-1 ring-blue-200 shadow-sm flex items-center justify-center">
+              <FiFileText className="text-blue-600 w-6 h-6" />
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-sky-500 drop-shadow-sm">Attendance Details</h2>
+          </div>
+          <div className="mt-2 h-1.5 w-28 bg-gradient-to-r from-blue-600 to-sky-500 rounded-full"></div>
+        </div>
         <div className="mb-4 flex flex-wrap gap-4 items-center">
           <div>
             <label className="font-semibold mr-2">Filter by Date:</label>
@@ -118,7 +129,7 @@ const AttendanceDetails = () => {
                         <img
                           src={a.photo_path.startsWith('http')
                             ? a.photo_path
-                            : `http://10.149.84.153:5000/${a.photo_path}`}
+                            : `http://localhost:5000/${a.photo_path}`}
                           alt="Attendance"
                           className="w-16 h-16 object-cover rounded shadow border border-gray-200"
                           onError={e => { e.target.onerror = null; e.target.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
@@ -157,7 +168,9 @@ const AttendanceDetails = () => {
             </tbody>
           </table>
         </div>
+        </div>
       </div>
+      <Footer bgColor="#261d1a" />
     </div>
   );
 }

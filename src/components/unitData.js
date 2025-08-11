@@ -1,15 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import Sidebar from './Sidebar';
+import Header from './Header';
+import Footer from './footer';
 import api from '../api/api';
+import { FiUsers } from 'react-icons/fi';
 
 function UnitData() {
   const [labours, setLabours] = useState([]);
   const [sectors, setSectors] = useState([]);
   const [armyUnits, setArmyUnits] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const entriesPerPage = 5;
 
   useEffect(() => {
     api.get('/labour/' + localStorage.getItem('userId'))
-      .then(res => setLabours(res.data.labours || []))
+      .then(res => { setLabours(res.data.labours || []); setCurrentPage(1); })
       .catch(err => console.error('Error fetching labours:', err));
 
     api.get('/dynamic/sectors')
@@ -31,27 +36,41 @@ function UnitData() {
     return unit ? unit.name : <span className="text-gray-500 italic">Not Assigned</span>;
   };
 
-  return (
-    <div className="flex min-h-screen bg-gray-100">
-      <div className="flex-shrink-0">
-        <Sidebar />
-      </div>
-      <main className="flex-1 p-8">
-        <h1 className="text-3xl font-bold mb-6 text-gray-800">Labours & Assigned Units</h1>
+  // Pagination
+  const totalPages = Math.ceil(labours.length / entriesPerPage) || 1;
+  const paginatedLabours = labours.slice((currentPage - 1) * entriesPerPage, currentPage * entriesPerPage);
 
-        <div className="overflow-x-auto bg-white shadow rounded-lg">
-          <table className="min-w-full table-auto text-base text-gray-800">
-            <thead className="bg-gray-200 text-gray-800 uppercase text-sm font-semibold">
+  return (
+    <div className="min-h-screen flex flex-col bg-gray-100">
+      <Header bgColor="#261d1a" />
+      <div className="flex flex-1">
+        <Sidebar bgColor="#261d1a" />
+        <main className="flex-1 px-6 pt-2 pb-24 ml-60 mt-1">
+        <div className="mb-5">
+          <div className="flex items-end gap-3">
+            <span className="h-10 w-10 rounded-full bg-blue-100 ring-1 ring-blue-200 shadow-sm flex items-center justify-center">
+              <FiUsers className="text-blue-600 w-6 h-6" />
+            </span>
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-sky-500 drop-shadow-sm">
+              Labours & Assigned Units
+            </h1>
+          </div>
+          <div className="mt-2 h-1.5 w-28 bg-gradient-to-r from-blue-600 to-sky-500 rounded-full"></div>
+        </div>
+
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow">
+          <table className="min-w-full divide-y divide-gray-200 text-gray-800">
+            <thead className="bg-blue-600 text-white">
               <tr>
-                <th className="px-5 py-3 text-left">Name</th>
-                <th className="px-5 py-3 text-left">Father Name</th>
-                <th className="px-5 py-3 text-left">Contact</th>
-                <th className="px-5 py-3 text-left">Aadhaar</th>
-                <th className="px-5 py-3 text-left">Sector</th>
-                <th className="px-5 py-3 text-left">Army Unit</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Name</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Father Name</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Contact</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Aadhaar</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Sector</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Army Unit</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-200">
               {labours.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="text-center p-6 text-gray-600 italic">
@@ -59,19 +78,16 @@ function UnitData() {
                   </td>
                 </tr>
               ) : (
-                labours.map(labour => {
+                paginatedLabours.map(labour => {
                   const capitalize = (str) => str && typeof str === 'string' ? str.charAt(0).toUpperCase() + str.slice(1) : str;
                   return (
-                    <tr
-                      key={labour.id}
-                      className="border-t hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-5 py-3">{capitalize(labour.name)}</td>
-                      <td className="px-5 py-3">{capitalize(labour.father_name)}</td>
-                      <td className="px-5 py-3">{labour.contact_number}</td>
-                      <td className="px-5 py-3">{labour.aadhaar_number}</td>
-                      <td className="px-5 py-3">{getSectorName(labour.sector_id)}</td>
-                      <td className="px-5 py-3">{getArmyUnitName(labour.army_unit_id)}</td>
+                    <tr key={labour.id} className="odd:bg-white even:bg-gray-50 hover:bg-blue-50 transition-colors">
+                      <td className="px-6 py-4">{capitalize(labour.name)}</td>
+                      <td className="px-6 py-4">{capitalize(labour.father_name)}</td>
+                      <td className="px-6 py-4">{labour.contact_number}</td>
+                      <td className="px-6 py-4">{labour.aadhaar_number}</td>
+                      <td className="px-6 py-4">{getSectorName(labour.sector_id)}</td>
+                      <td className="px-6 py-4">{getArmyUnitName(labour.army_unit_id)}</td>
                     </tr>
                   );
                 })
@@ -79,7 +95,28 @@ function UnitData() {
             </tbody>
           </table>
         </div>
-      </main>
+        {labours.length > entriesPerPage && (
+          <div className="flex items-center justify-center mt-6 space-x-4">
+            <button
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className={`px-4 py-2 rounded bg-blue-600 text-white font-semibold transition disabled:bg-gray-300 disabled:text-gray-500`}
+            >
+              Prev
+            </button>
+            <span className="font-semibold text-gray-700">Page {currentPage} of {totalPages}</span>
+            <button
+              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className={`px-4 py-2 rounded bg-blue-600 text-white font-semibold transition disabled:bg-gray-300 disabled:text-gray-500`}
+            >
+              Next
+            </button>
+          </div>
+        )}
+        </main>
+      </div>
+      <Footer bgColor="#261d1a" />
     </div>
   );
 }

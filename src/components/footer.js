@@ -1,8 +1,17 @@
 import React from 'react'
 
-const Footer = () => {
+const Footer = ({ variant = 'blue', bgColor }) => {
+  const theme =
+    variant === 'glass'
+      ? 'bg-black/30 backdrop-blur-md border-t border-white/20'
+      : bgColor
+      ? ''
+      : 'bg-gradient-to-r from-blue-700 via-blue-500 to-blue-700';
+
+  const style = bgColor && variant !== 'glass' ? { backgroundColor: bgColor } : undefined;
+
   return (
-    <footer className="w-full fixed bottom-0 left-0 bg-gradient-to-r from-blue-700 via-blue-500 to-blue-700 text-white text-center py-2 text-base z-50 shadow-lg border-t border-blue-300">
+    <footer className={`w-full fixed bottom-0 left-0 ${theme} text-white text-center py-2 text-base z-50 shadow-lg`} style={style}>
       <div className="flex flex-col items-center justify-center space-y-1">
         <div className="flex items-center justify-center space-x-2">
           {/* JaKeGA Logo */}

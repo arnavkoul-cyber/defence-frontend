@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { User, UserCheck, Building, Phone, CreditCard, Camera, X, CheckCircle, Play, Square } from 'lucide-react';
+import { User, UserCheck, Building, Phone, CreditCard, Camera, X, CheckCircle } from 'lucide-react';
 import Header from './Header';
 import api from '../api/api';
-import Footer from './footer'; // Corrected import to match filename
-
-// Mock Footer Component
-
+import Footer from './footer';
+import { toast } from 'react-toastify';
 
 function LabourForm() {
   const [formData, setFormData] = useState({
@@ -15,7 +13,7 @@ function LabourForm() {
     contact_number: '',
     aadhaar_number: '',
   });
-  
+
   const [sectors, setSectors] = useState([]);
 
   useEffect(() => {
@@ -24,13 +22,12 @@ function LabourForm() {
         const response = await api.get('/dynamic/sectors');
         setSectors(response.data.data || []);
       } catch (err) {
-        // fallback: show error or keep empty
         setSectors([]);
       }
     };
     fetchSectors();
   }, []);
-  
+
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [capturedPhoto, setCapturedPhoto] = useState(null);
@@ -114,291 +111,282 @@ function LabourForm() {
       setErrors(validationErrors);
       return;
     }
-    
+
     setSubmitting(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Prepare payload
+      const payload = {
+        ...formData,
+        photo: capturedPhoto, // base64 image
+      };
+ 
+      const response = await api.post('/labour/register', payload);
+ toast.success('Labour registered successfully!', { position: 'top-center', autoClose: 2500 });
+   
       
-      alert('Labour registered successfully!');
-      setFormData({
-        name: '',
-        father_name: '',
-        sector_id: '',
-        contact_number: '',
-        aadhaar_number: '',
-      });
-      setCapturedPhoto(null);
-      setErrors({});
+        setFormData({
+          name: '',
+          father_name: '',
+          sector_id: '',
+          contact_number: '',
+          aadhaar_number: '',
+        });
+        setCapturedPhoto(null);
+        setErrors({});
+      
     } catch (err) {
-      alert('Error registering labour');
+      toast.error(err.response?.data?.message || err.response?.data?.error || 'Error registering labour');
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex flex-col">
-      <Header />
-      
-      {/* Main Content Area with proper spacing */}
-      <main className="flex-1 py-8 px-4 sm:px-6 lg:px-8 pb-28">
-        <div className="max-w-3xl mx-auto mb-12"> {/* Added margin-bottom to separate from footer */}
-          {/* Form Container */}
-          <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
-            {/* Form Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-8 py-6">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm border border-white/30">
-                  <UserCheck className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-2xl sm:text-3xl font-bold text-white">Labour Registration</h2>
-                  <p className="text-blue-100 mt-1">Complete your registration to join our workforce</p>
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Background image with blur and dark overlay */}
+      <img src={require('../assets/labour_pic.jpg')} alt="Background" className="absolute inset-0 w-full h-full object-cover scale-105" />
+      <div className="absolute inset-0 bg-black/40" aria-hidden="true"></div>
+      <div className="absolute inset-0 backdrop-blur-sm" aria-hidden="true"></div>
+
+      {/* Content */}
+      <div className="relative flex flex-col min-h-screen">
+        <Header variant="glass" />
+
+        {/* Main Content Area with proper spacing */}
+        <main className="flex-1 py-8 px-4 sm:px-6 lg:px-8 pb-28">
+          <div className="max-w-3xl mx-auto mb-12">
+            {/* Form Container */}
+            <form onSubmit={handleSubmit} className="bg-white/70 backdrop-blur-lg rounded-3xl shadow-2xl border border-white/30 overflow-hidden">
+              {/* Form Header */}
+              <div className="bg-gradient-to-r from-blue-500/90 to-blue-400/80 px-8 py-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm border border-white/30">
+                    <UserCheck className="w-8 h-8 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-white">Labour Registration</h2>
+                    <p className="text-blue-100 mt-1">Complete your registration to join our workforce</p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Scrollable Form Content */}
-            <div className="max-h-[420px] md:max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-gray-100">
-              <div className="p-8 space-y-6">
-                
-                {/* Row 1: Name and Father Name */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                      <User className="w-4 h-4 text-blue-600" />
-                      Full Name
-                    </label>
-                    <input
-                      type="text"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      className={`w-full p-4 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all duration-200 ${
-                        errors.name ? 'border-red-400 bg-red-50' : 'border-gray-200 focus:border-blue-400'
-                      } bg-gray-50/50 placeholder:text-gray-400`}
-                      placeholder="Enter your full name"
-                    />
-                    {errors.name && <p className="text-red-500 text-sm flex items-center gap-1"><X className="w-4 h-4" />{errors.name}</p>}
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                      <User className="w-4 h-4 text-blue-600" />
-                      Father's Name
-                    </label>
-                    <input
-                      type="text"
-                      name="father_name"
-                      value={formData.father_name}
-                      onChange={handleChange}
-                      className={`w-full p-4 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all duration-200 ${
-                        errors.father_name ? 'border-red-400 bg-red-50' : 'border-gray-200 focus:border-blue-400'
-                      } bg-gray-50/50 placeholder:text-gray-400`}
-                      placeholder="Enter father's name"
-                    />
-                    {errors.father_name && <p className="text-red-500 text-sm flex items-center gap-1"><X className="w-4 h-4" />{errors.father_name}</p>}
-                  </div>
-                </div>
-
-                {/* Row 2: Sector and Contact */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                      <Building className="w-4 h-4 text-blue-600" />
-                      Work Sector
-                    </label>
-                    <div className="relative">
-                      <select
-                        name="sector_id"
-                        value={formData.sector_id}
-                        onChange={(e) => handleSectorChange(e.target.value)}
-                        className={`w-full p-4 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all duration-200 ${
-                          errors.sector_id ? 'border-red-400 bg-red-50' : 'border-gray-200 focus:border-blue-400'
-                        } bg-gray-50/50 text-gray-700 appearance-none`}
-                      >
-                        <option value="">Select your work sector</option>
-                        {sectors.map(sector => (
-                          <option key={sector.id} value={sector.id}>{sector.name}</option>
-                        ))}
-                      </select>
-                      <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-                        <svg className="w-4 h-4 fill-current text-gray-400" viewBox="0 0 20 20">
-                          <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
-                        </svg>
-                      </div>
-                    </div>
-                    {errors.sector_id && <p className="text-red-500 text-sm flex items-center gap-1"><X className="w-4 h-4" />{errors.sector_id}</p>}
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                      <Phone className="w-4 h-4 text-blue-600" />
-                      Contact Number
-                    </label>
-                    <div className="relative">
+              {/* Scrollable Form Content */}
+              <div className="max-h-[420px] md:max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-blue-300 scrollbar-track-white/10">
+                <div className="p-8 space-y-6">
+                  {/* Row 1: Name and Father Name */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                        <User className="w-4 h-4 text-blue-600" />
+                        Full Name
+                      </label>
                       <input
                         type="text"
-                        name="contact_number"
-                        value={formData.contact_number}
+                        name="name"
+                        value={formData.name}
                         onChange={handleChange}
-                        className={`w-full p-4 pl-12 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all duration-200 ${
-                          errors.contact_number ? 'border-red-400 bg-red-50' : 'border-gray-200 focus:border-blue-400'
-                        } bg-gray-50/50 placeholder:text-gray-400`}
-                        placeholder="10-digit mobile number"
-                        maxLength={10}
+                        className={`w-full p-4 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all duration-200 ${
+                          errors.name ? 'border-red-400 bg-red-50' : 'border-white/50 md:border-gray-200 focus:border-blue-300'
+                        } bg-white/70 md:bg-white placeholder:text-gray-400`}
+                        placeholder="Enter your full name"
                       />
-                      <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-blue-500" />
+                      {errors.name && <p className="text-red-500 text-sm flex items-center gap-1"><X className="w-4 h-4" />{errors.name}</p>}
                     </div>
-                    {formData.contact_number && formData.contact_number.length !== 10 && (
-                      <p className="text-amber-600 text-sm">Please enter a complete 10-digit number</p>
-                    )}
-                    {errors.contact_number && <p className="text-red-500 text-sm flex items-center gap-1"><X className="w-4 h-4" />{errors.contact_number}</p>}
-                  </div>
-                </div>
 
-                {/* Row 3: Aadhaar Number */}
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                    <CreditCard className="w-4 h-4 text-blue-600" />
-                    Aadhaar Number
-                  </label>
-                  <div className="relative max-w-md">
-                    <input
-                      type="text"
-                      name="aadhaar_number"
-                      value={formData.aadhaar_number}
-                      onChange={handleChange}
-                      className={`w-full p-4 pl-12 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all duration-200 ${
-                        errors.aadhaar_number ? 'border-red-400 bg-red-50' : 'border-gray-200 focus:border-blue-400'
-                      } bg-gray-50/50 placeholder:text-gray-400`}
-                      placeholder="12-digit Aadhaar number"
-                      maxLength={12}
-                    />
-                    <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-blue-500" />
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                        <User className="w-4 h-4 text-blue-600" />
+                        Father's Name
+                      </label>
+                      <input
+                        type="text"
+                        name="father_name"
+                        value={formData.father_name}
+                        onChange={handleChange}
+                        className={`w-full p-4 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all duration-200 ${
+                          errors.father_name ? 'border-red-400 bg-red-50' : 'border-white/50 md:border-gray-200 focus:border-blue-300'
+                        } bg-white/70 md:bg-white placeholder:text-gray-400`}
+                        placeholder="Enter father's name"
+                      />
+                      {errors.father_name && <p className="text-red-500 text-sm flex items-center gap-1"><X className="w-4 h-4" />{errors.father_name}</p>}
+                    </div>
                   </div>
-                  {formData.aadhaar_number && formData.aadhaar_number.length !== 12 && (
-                    <p className="text-amber-600 text-sm">Please enter a complete 12-digit number</p>
-                  )}
-                  {errors.aadhaar_number && <p className="text-red-500 text-sm flex items-center gap-1"><X className="w-4 h-4" />{errors.aadhaar_number}</p>}
-                </div>
 
-                {/* Photo Capture Section */}
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                    <Camera className="w-4 h-4 text-blue-600" />
-                    Photo Capture (Required)
-                  </label>
-                  
-                  <div className="bg-gray-50 rounded-xl p-6 border-2 border-dashed border-gray-300">
-                    {!showCamera && !capturedPhoto && (
-                      <div className="text-center">
-                        <div className="w-14 h-14 mx-auto mb-2 bg-blue-100 rounded-full flex items-center justify-center">
-                          <Camera className="w-6 h-6 text-blue-600" />
-                        </div>
-                        <button
-                          type="button"
-                          className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white px-5 py-2.5 rounded-xl font-semibold shadow-lg transition-all duration-200 flex items-center gap-2 mx-auto"
-                          onClick={handleOpenCamera}
+                  {/* Row 2: Sector and Contact */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                        <Building className="w-4 h-4 text-blue-600" />
+                        Work Sector
+                      </label>
+                      <div className="relative">
+                        <select
+                          name="sector_id"
+                          value={formData.sector_id}
+                          onChange={(e) => handleSectorChange(e.target.value)}
+                          className={`w-full p-4 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all duration-200 ${
+                            errors.sector_id ? 'border-red-400 bg-red-50' : 'border-white/50 md:border-gray-200 focus:border-blue-300'
+                          } bg-white/70 md:bg-white text-gray-700 appearance-none`}
                         >
-                          <Camera className="w-4 h-4" />
-                          Open Camera
-                        </button>
-                        <p className="text-xs text-gray-600 mt-1">Click to capture your photo</p>
-                      </div>
-                    )}
-
-                    {showCamera && (
-                      <div className="text-center space-y-4">
-                        <video 
-                          ref={videoRef} 
-                          autoPlay 
-                          className="rounded-xl border-4 border-white shadow-lg w-full max-w-sm mx-auto h-64 object-cover" 
-                        />
-                        <div className="flex justify-center gap-4">
-                          <button 
-                            type="button" 
-                            className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg transition-all duration-200 flex items-center gap-2"
-                            onClick={handleCapturePhoto}
-                          >
-                            <CheckCircle className="w-5 h-5" />
-                            Capture Photo
-                          </button>
-                          <button 
-                            type="button" 
-                            className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg transition-all duration-200 flex items-center gap-2"
-                            onClick={handleCloseCamera}
-                          >
-                            <X className="w-5 h-5" />
-                            Cancel
-                          </button>
+                          <option value="">Select your work sector</option>
+                          {sectors.map(sector => (
+                            <option key={sector.id} value={sector.id}>{sector.name}</option>
+                          ))}
+                        </select>
+                        <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                          <svg className="w-4 h-4 fill-current text-gray-400" viewBox="0 0 20 20">
+                            <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                          </svg>
                         </div>
                       </div>
-                    )}
+                      {errors.sector_id && <p className="text-red-500 text-sm flex items-center gap-1"><X className="w-4 h-4" />{errors.sector_id}</p>}
+                    </div>
 
-                    {capturedPhoto && (
-                      <div className="text-center space-y-4">
-                      <div className="relative inline-block">
-                        <img 
-                          src={capturedPhoto} 
-                          alt="Captured Photo" 
-                          className="rounded-xl border-4 border-white shadow-lg w-32 h-24 object-cover mx-auto" 
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                        <Phone className="w-4 h-4 text-blue-600" />
+                        Contact Number
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          name="contact_number"
+                          value={formData.contact_number}
+                          onChange={handleChange}
+                          className={`w-full p-4 pl-12 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all duration-200 ${
+                            errors.contact_number ? 'border-red-400 bg-red-50' : 'border-white/50 md:border-gray-200 focus:border-blue-300'
+                          } bg-white/70 md:bg-white placeholder:text-gray-400`}
+                          placeholder="10-digit mobile number"
+                          maxLength={10}
                         />
-                        <div className="absolute -top-2 -right-2 bg-green-500 rounded-full p-1">
-                          <CheckCircle className="w-5 h-5 text-white" />
-                        </div>
+                        <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-blue-500" />
                       </div>
-                        <div className="flex justify-center gap-4">
-                          <span className="text-green-600 font-semibold flex items-center gap-2">
-                            <CheckCircle className="w-5 h-5" />
-                            Photo captured successfully!
-                          </span>
+                      {formData.contact_number && formData.contact_number.length !== 10 && (
+                        <p className="text-amber-600 text-sm">Please enter a complete 10-digit number</p>
+                      )}
+                      {errors.contact_number && <p className="text-red-500 text-sm flex items-center gap-1"><X className="w-4 h-4" />{errors.contact_number}</p>}
+                    </div>
+                  </div>
+
+                  {/* Row 3: Aadhaar Number */}
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                      <CreditCard className="w-4 h-4 text-blue-600" />
+                      Aadhaar Number
+                    </label>
+                    <div className="relative max-w-md">
+                      <input
+                        type="text"
+                        name="aadhaar_number"
+                        value={formData.aadhaar_number}
+                        onChange={handleChange}
+                        className={`w-full p-4 pl-12 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all duration-200 ${
+                          errors.aadhaar_number ? 'border-red-400 bg-red-50' : 'border-white/50 md:border-gray-200 focus:border-blue-300'
+                        } bg-white/70 md:bg-white placeholder:text-gray-400`}
+                        placeholder="12-digit Aadhaar number"
+                        maxLength={12}
+                      />
+                      <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-blue-500" />
+                    </div>
+                    {formData.aadhaar_number && formData.aadhaar_number.length !== 12 && (
+                      <p className="text-amber-600 text-sm">Please enter a complete 12-digit number</p>
+                    )}
+                    {errors.aadhaar_number && <p className="text-red-500 text-sm flex items-center gap-1"><X className="w-4 h-4" />{errors.aadhaar_number}</p>}
+                  </div>
+
+                  {/* Photo Capture Section */}
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                      <Camera className="w-4 h-4 text-blue-600" />
+                      Photo Capture (Required)
+                    </label>
+
+                    <div className="bg-white/60 rounded-xl p-6 border-2 border-dashed border-white/40">
+                      {!showCamera && !capturedPhoto && (
+                        <div className="text-center">
+                          <div className="w-14 h-14 mx-auto mb-2 bg-blue-100 rounded-full flex items-center justify-center">
+                            <Camera className="w-6 h-6 text-blue-600" />
+                          </div>
                           <button
                             type="button"
-                            onClick={() => setCapturedPhoto(null)}
-                            className="text-blue-600 hover:text-blue-800 font-semibold underline"
+                            className="bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white px-5 py-2.5 rounded-xl font-semibold shadow-lg transition-all duration-200 flex items-center gap-2 mx-auto"
+                            onClick={handleOpenCamera}
                           >
-                            Retake Photo
+                            <Camera className="w-4 h-4" />
+                            Open Camera
                           </button>
+                          <p className="text-xs text-gray-600 mt-1">Click to capture your photo</p>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    <canvas ref={canvasRef} style={{ display: 'none' }} />
+                      {showCamera && (
+                        <div className="text-center space-y-4">
+                          <video ref={videoRef} autoPlay className="rounded-xl border-4 border-white shadow-lg w-full max-w-sm mx-auto h-64 object-cover" />
+                          <div className="flex justify-center gap-4">
+                            <button type="button" className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg transition-all duration-200 flex items-center gap-2" onClick={handleCapturePhoto}>
+                              <CheckCircle className="w-5 h-5" />
+                              Capture Photo
+                            </button>
+                            <button type="button" className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg transition-all duration-200 flex items-center gap-2" onClick={handleCloseCamera}>
+                              <X className="w-5 h-5" />
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {capturedPhoto && (
+                        <div className="text-center space-y-4">
+                          <div className="relative inline-block">
+                            <img src={capturedPhoto} alt="Captured Photo" className="rounded-xl border-4 border-white shadow-lg w-32 h-24 object-cover mx-auto" />
+                            <div className="absolute -top-2 -right-2 bg-green-500 rounded-full p-1">
+                              <CheckCircle className="w-5 h-5 text-white" />
+                            </div>
+                          </div>
+                          <div className="flex justify-center gap-4">
+                            <span className="text-green-600 font-semibold flex items-center gap-2">
+                              <CheckCircle className="w-5 h-5" />
+                              Photo captured successfully!
+                            </span>
+                            <button type="button" onClick={() => setCapturedPhoto(null)} className="text-blue-600 hover:text-blue-800 font-semibold underline">
+                              Retake Photo
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      <canvas ref={canvasRef} style={{ display: 'none' }} />
+                    </div>
+
+                    {errors.capturedPhoto && <p className="text-red-500 text-sm flex items-center gap-1"><X className="w-4 h-4" />{errors.capturedPhoto}</p>}
                   </div>
-                  
-                  {errors.capturedPhoto && <p className="text-red-500 text-sm flex items-center gap-1"><X className="w-4 h-4" />{errors.capturedPhoto}</p>}
-                </div>
 
-                {/* Submit Button */}
-                <div className="pt-6">
-                  <button
-                    type="submit"
-                    className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white px-8 py-4 rounded-xl font-bold text-lg shadow-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed transform hover:scale-[1.02]"
-                    disabled={submitting}
-                  >
-                    {submitting ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                        Submitting...
-                      </span>
-                    ) : (
-                      <span className="flex items-center justify-center gap-2">
-                        <CheckCircle className="w-5 h-5" />
-                        Submit Registration
-                      </span>
-                    )}
-                  </button>
+                  {/* Submit Button */}
+                  <div className="pt-6">
+                    <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white px-8 py-4 rounded-xl font-bold text-lg shadow-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed transform hover:scale-[1.02]" disabled={submitting}>
+                      {submitting ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                          Submitting...
+                        </span>
+                      ) : (
+                        <span className="flex items-center justify-center gap-2">
+                          <CheckCircle className="w-5 h-5" />
+                          Submit Registration
+                        </span>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            </form>
           </div>
-        </div>
-      </main>
+        </main>
 
-          <Footer />
-        </div>
-      )}
+        <Footer variant="glass" />
+      </div>
+    </div>
+  );
+}
 
-            export default LabourForm;
+export default LabourForm;

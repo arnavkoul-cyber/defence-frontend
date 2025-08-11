@@ -1,10 +1,10 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FiUsers, FiDatabase, FiLogOut, FiHome, FiCheckSquare } from 'react-icons/fi'; // Feather icons from react-icons
+import { FiUsers, FiDatabase, FiLogOut, FiHome, FiCheckSquare, FiFileText } from 'react-icons/fi'; // Feather icons from react-icons
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-function Sidebar() {
+function Sidebar({ bgColor }) {
   const location = useLocation();
   let dashboardTitle;
   const armyUnitId = localStorage.getItem('army_unit_id');
@@ -15,13 +15,14 @@ function Sidebar() {
     dashboardTitle = "Army Dashboard";
   }
   
-
-  const linkClasses = (path) =>
-    `flex items-center space-x-2 px-4 py-2 rounded-md transition-all ${
-      location.pathname === path
-        ? 'bg-gray-700 text-white'
-        : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-    }`;
+  const linkClasses = (path) => {
+    const isActive = location.pathname === path;
+    const active = bgColor ? 'bg-white/20 text-white' : 'bg-gray-700 text-white';
+    const inactive = bgColor
+      ? 'text-gray-200 hover:bg-white/10 hover:text-white'
+      : 'text-gray-300 hover:bg-gray-800 hover:text-white';
+    return `flex items-center space-x-2 px-4 py-2 rounded-md transition-all ${isActive ? active : inactive}`;
+  };
 
   const navigate = useNavigate();
 
@@ -31,12 +32,16 @@ function Sidebar() {
     localStorage.removeItem('army_unit_id');
     localStorage.removeItem('auth_token');
     // Add/remove other keys as needed, but keep attendance_marked
-    toast.success('Logged out successfully!', { position: 'top-center', autoClose: 2000 });
+  
+    toast.success('Logged out successfully!', { position: 'top-center', autoClose: 1500 });
     setTimeout(() => navigate('/login'), 1200);
   };
 
   return (
-    <div className="w-60 bg-gray-900 text-white h-screen p-4 shadow-lg">
+    <div
+      className={`w-60 ${bgColor ? '' : 'bg-gray-900'} text-white p-4 shadow-lg fixed top-20 left-0 bottom-0 overflow-y-auto`}
+      style={bgColor ? { backgroundColor: bgColor } : undefined}
+    >
       <ToastContainer />
       <div className="mb-8 flex flex-col items-center justify-center">
         <FiHome className="text-4xl mb-2" />
@@ -61,7 +66,7 @@ function Sidebar() {
         {isArmyDashboard ? (
           <Link to="/attendance" className={linkClasses('/attendance')}>
             <FiCheckSquare />
-            <span>Attendance</span>
+            <span>Mark Attendance</span>
           </Link>
         ) : (
           <Link to="/unitData" className={linkClasses('/unitData')}>
@@ -71,18 +76,18 @@ function Sidebar() {
         )}
         {isArmyDashboard && (
           <Link to="/attendanceDetails" className={linkClasses('/attendanceDetails')}>
-            <FiCheckSquare />
+            <FiFileText />
             <span>Attendance Details</span>
           </Link>
         )}
-        <button
+        {/* <button
           onClick={handleLogout}
           className={linkClasses('/login') + ' w-full text-left flex items-center'}
           style={{ background: 'none', border: 'none', outline: 'none', cursor: 'pointer' }}
         >
           <FiLogOut />
           <span>Logout</span>
-        </button>
+        </button> */}
       </nav>
     </div>
   );
