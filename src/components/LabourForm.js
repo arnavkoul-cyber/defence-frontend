@@ -11,7 +11,11 @@ function LabourForm() {
     father_name: '',
     sector_id: '',
     contact_number: '',
-    aadhaar_number: '',
+  aadhaar_number: '',
+  bank_name: '',
+  bank_account_no: '',
+  bank_ifsc_code: '',
+  adhar_path: '',
   });
 
   const [sectors, setSectors] = useState([]);
@@ -32,6 +36,7 @@ function LabourForm() {
   const [submitting, setSubmitting] = useState(false);
   const [capturedPhoto, setCapturedPhoto] = useState(null);
   const [showCamera, setShowCamera] = useState(false);
+  const [showBankForm, setShowBankForm] = useState(false);
   const videoRef = React.useRef(null);
   const canvasRef = React.useRef(null);
 
@@ -91,6 +96,16 @@ function LabourForm() {
       newErrors.aadhaar_number = 'Aadhaar number must be 12 digits.';
     }
     if (!capturedPhoto) newErrors.capturedPhoto = 'Photo capture is required.';
+
+    // If bank details form is shown, validate those too
+    if (showBankForm) {
+      if (!formData.bank_name.trim()) newErrors.bank_name = 'Bank name is required.';
+      if (!formData.bank_account_no.trim()) newErrors.bank_account_no = 'Account number is required.';
+      else if (!/^\d{6,18}$/.test(formData.bank_account_no.trim())) newErrors.bank_account_no = 'Enter a valid account number.';
+      if (!formData.bank_ifsc_code.trim()) newErrors.bank_ifsc_code = 'IFSC code is required.';
+      else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/i.test(formData.bank_ifsc_code.trim())) newErrors.bank_ifsc_code = 'Enter a valid IFSC code.';
+      if (!formData.adhar_path) newErrors.adhar_path = 'Aadhaar image is required.';
+    }
     return newErrors;
   };
 
@@ -102,6 +117,31 @@ function LabourForm() {
   const handleSectorChange = (selectedValue) => {
     setFormData({ ...formData, sector_id: selectedValue });
     setErrors({ ...errors, sector_id: undefined });
+  };
+
+  // Check if base labour form is complete (for enabling the bank step)
+  const isLabourFormComplete = () => {
+    const contactOk = /^\d{10}$/.test((formData.contact_number || '').trim());
+    const aadhaarOk = /^\d{12}$/.test((formData.aadhaar_number || '').trim());
+    return Boolean(
+      (formData.name || '').trim() &&
+      (formData.father_name || '').trim() &&
+      (formData.sector_id || '') &&
+      contactOk &&
+      aadhaarOk &&
+      capturedPhoto
+    );
+  };
+
+  const handleAadharFile = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFormData((prev) => ({ ...prev, adhar_path: reader.result }));
+      setErrors((prev) => ({ ...prev, adhar_path: undefined }));
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSubmit = async (e) => {
@@ -116,8 +156,17 @@ function LabourForm() {
     try {
       // Prepare payload
       const payload = {
-        ...formData,
+        name: formData.name,
+        father_name: formData.father_name,
+        sector_id: formData.sector_id,
+        contact_number: formData.contact_number,
+        aadhaar_number: formData.aadhaar_number,
         photo: capturedPhoto, // base64 image
+        // Bank details (as requested keys)
+        bank_name: formData.bank_name || undefined,
+        bank_account_no: formData.bank_account_no || undefined,
+        bank_ifsc_code: formData.bank_ifsc_code || undefined,
+        adhar_path: formData.adhar_path || undefined,
       };
  
       const response = await api.post('/labour/register', payload);
@@ -130,8 +179,13 @@ function LabourForm() {
           sector_id: '',
           contact_number: '',
           aadhaar_number: '',
+          bank_name: '',
+          bank_account_no: '',
+          bank_ifsc_code: '',
+          adhar_path: '',
         });
         setCapturedPhoto(null);
+        setShowBankForm(false);
         setErrors({});
       
     } catch (err) {
@@ -361,22 +415,92 @@ function LabourForm() {
                     {errors.capturedPhoto && <p className="text-red-500 text-sm flex items-center gap-1"><X className="w-4 h-4" />{errors.capturedPhoto}</p>}
                   </div>
 
-                  {/* Submit Button */}
-                  <div className="pt-6">
-                    <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white px-8 py-4 rounded-xl font-bold text-lg shadow-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed transform hover:scale-[1.02]" disabled={submitting}>
-                      {submitting ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                          Submitting...
-                        </span>
-                      ) : (
-                        <span className="flex items-center justify-center gap-2">
-                          <CheckCircle className="w-5 h-5" />
-                          Submit Registration
-                        </span>
+                  {/* Bank Details Section (shown after photo) */}
+                  {!showBankForm && (
+                    <div className="pt-6">
+                      <button
+                        type="button"
+                        onClick={() => isLabourFormComplete() && setShowBankForm(true)}
+                        disabled={!isLabourFormComplete()}
+                        className={`w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white px-8 py-4 rounded-xl font-bold text-lg shadow-lg transition-all duration-200 transform hover:scale-[1.02] ${!isLabourFormComplete() ? 'opacity-60 cursor-not-allowed hover:from-emerald-600 hover:to-emerald-500' : ''}`}
+                      >
+                        Add Bank Details
+                      </button>
+                      {!isLabourFormComplete() && (
+                        <p className="text-sm text-gray-600 mt-2 text-center">Complete Labour details and capture photo to continue</p>
                       )}
-                    </button>
-                  </div>
+                    </div>
+                  )}
+
+                  {showBankForm && (
+                    <div className="mt-8 space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-gray-700">Bank Name</label>
+                          <input
+                            type="text"
+                            name="bank_name"
+                            value={formData.bank_name}
+                            onChange={handleChange}
+                            className={`w-full p-4 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-300 ${errors.bank_name ? 'border-red-400 bg-red-50' : 'border-white/50 md:border-gray-200'}`}
+                            placeholder="e.g., J&K Bank"
+                          />
+                          {errors.bank_name && <p className="text-red-500 text-sm">{errors.bank_name}</p>}
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-gray-700">Account Number</label>
+                          <input
+                            type="text"
+                            name="bank_account_no"
+                            value={formData.bank_account_no}
+                            onChange={handleChange}
+                            className={`w-full p-4 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-300 ${errors.bank_account_no ? 'border-red-400 bg-red-50' : 'border-white/50 md:border-gray-200'}`}
+                            placeholder="Enter account number"
+                          />
+                          {errors.bank_account_no && <p className="text-red-500 text-sm">{errors.bank_account_no}</p>}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-gray-700">IFSC Code</label>
+                          <input
+                            type="text"
+                            name="bank_ifsc_code"
+                            value={formData.bank_ifsc_code}
+                            onChange={handleChange}
+                            className={`w-full p-4 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-300 uppercase ${errors.bank_ifsc_code ? 'border-red-400 bg-red-50' : 'border-white/50 md:border-gray-200'}`}
+                            placeholder="e.g., JAKA0XXXXXX"
+                          />
+                          {errors.bank_ifsc_code && <p className="text-red-500 text-sm">{errors.bank_ifsc_code}</p>}
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-gray-700">Upload Aadhaar Image</label>
+                          <input type="file" accept="image/*" onChange={handleAadharFile} className="w-full p-3 border-2 rounded-xl bg-white/70 md:bg-white" />
+                          {errors.adhar_path && <p className="text-red-500 text-sm">{errors.adhar_path}</p>}
+                          {formData.adhar_path && (
+                            <img src={formData.adhar_path} alt="Aadhaar Preview" className="mt-2 w-40 h-28 object-cover rounded-md border" />
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Submit after bank details */}
+                      <div className="pt-2">
+                        <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white px-8 py-4 rounded-xl font-bold text-lg shadow-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed transform hover:scale-[1.02]" disabled={submitting}>
+                          {submitting ? (
+                            <span className="flex items-center justify-center gap-2">
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                              Submitting...
+                            </span>
+                          ) : (
+                            <span className="flex items-center justify-center gap-2">
+                              <CheckCircle className="w-5 h-5" />
+                              Submit Registration
+                            </span>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </form>

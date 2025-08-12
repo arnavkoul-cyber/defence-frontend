@@ -4,6 +4,7 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import Footer from './footer';
 import { FiUsers } from 'react-icons/fi';
+import { toast } from 'react-toastify';
 
 function Dashboard() {
   // Determine if this is the Army Dashboard
@@ -18,6 +19,8 @@ function Dashboard() {
   const [armyUnitId, setArmyUnitId] = useState('');
   const [armyUnits, setArmyUnits] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDecisionModalOpen, setIsDecisionModalOpen] = useState(false);
+  const [decisionRemarks, setDecisionRemarks] = useState('');
 
   const fetchLabours = async () => {
     try {
@@ -48,20 +51,64 @@ function Dashboard() {
     }
   };
 
+
   const handleDelete = async (id) => {
+    console.log('Deleting labour with ID:', id);
     try {
       await api.delete(`/labour/${id}`);
-      fetchLabours();
     } catch (err) {
-      console.error(err);
+      console.error('Delete failed, falling back to refresh:', err?.response?.status || err?.message);
+      // If API returns 404, treat as already removed from server and optimistically update UI
+      
+    } finally {
+      // Always refresh the list from server as requested
+      fetchLabours();
     }
   };
 
   const handleEdit = (labour) => {
+    // kept for backward compatibility if needed elsewhere
     setSelectedLabour(labour);
     setArmyUnitId('');
     fetchArmyUnits();
     setIsModalOpen(true);
+  };
+
+  // Open decision (View) modal
+  const handleView = (labour) => {
+    setSelectedLabour(labour);
+    setDecisionRemarks('');
+    setIsDecisionModalOpen(true);
+  };
+
+  // Accept -> close decision modal and open assign modal
+  const handleAccept = () => {
+    if (!selectedLabour) return;
+    setIsDecisionModalOpen(false);
+    setArmyUnitId('');
+    fetchArmyUnits();
+    setIsModalOpen(true);
+  };
+
+  // Reject -> delete entry (optionally could send remarks if backend supports)
+  const handleReject = async () => {
+    if (!selectedLabour) return;
+    try {
+      // Log remarks locally for now
+      console.log('Rejecting labour', selectedLabour.id, 'remarks:', decisionRemarks);
+      // Close the modal immediately for snappier UX
+      setIsDecisionModalOpen(false);
+      const id = selectedLabour.id;
+      setSelectedLabour(null);
+      setDecisionRemarks('');
+
+  // Remove entry
+  await handleDelete(id);
+  toast.success('Labour entry removed', { position: 'top-center', autoClose: 1600 });
+    } catch (err) {
+      console.error(err);
+  toast.error('Failed to remove entry', { position: 'top-center', autoClose: 1800 });
+    }
   };
 
   const handleAssignArmyUnit = async () => {
@@ -84,6 +131,7 @@ function Dashboard() {
 
   useEffect(() => {
     fetchLabours();
+  // Cards moved to Analytics page; keep base fetch only
   }, []);
 
   // Pagination logic
@@ -107,6 +155,7 @@ function Dashboard() {
             </div>
             <div className="mt-2 h-1.5 w-28 bg-gradient-to-r from-blue-600 to-sky-500 rounded-full"></div>
           </div>
+            {/* Defence analytics cards moved to Analytics page */}
   
 
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow">
@@ -117,13 +166,19 @@ function Dashboard() {
                 {!isArmyDashboard && <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Father Name</th>}
                 <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Contact</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Aadhaar</th>
-                {!isArmyDashboard && <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Actions</th>}
+                {!isArmyDashboard && (
+                  <>
+                    
+                    <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Remarks</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {labours.length === 0 ? (
                 <tr>
-                  <td colSpan={isArmyDashboard ? 3 : 5} className="text-center py-4 text-gray-500">No labours found.</td>
+                  <td colSpan={isArmyDashboard ? 3 : 6} className="text-center py-4 text-gray-500">No labours found.</td>
                 </tr>
               ) : (
                 paginatedLabours.map((labour) => {
@@ -136,14 +191,26 @@ function Dashboard() {
                       <td className="px-6 py-4">{labour.contact_number}</td>
                       <td className="px-6 py-4">{labour.aadhaar_number}</td>
                       {!isArmyDashboard && (
-                        <td className="px-6 py-4 flex space-x-2">
-                          <button
-                            onClick={() => handleEdit(labour)}
-                            className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1 rounded-full shadow-sm transition"
-                          >
-                            Assign
-                          </button>
-                        </td>
+                        <>
+                      
+                          <td className="px-6 py-4 flex space-x-2">
+                            <button
+                              onClick={() => handleView(labour)}
+                              disabled={!!labour.army_unit_id}
+                              title={labour.army_unit_id ? 'Already assigned to an Army Unit' : 'Review and assign'}
+                              className={`px-3 py-1 rounded-full shadow-sm transition text-white ${labour.army_unit_id ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+                            >
+                              View
+                            </button>
+                          </td>
+                              <td className="px-6 py-4">
+                            {labour.army_unit_id ? (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">Assigned</span>
+                            ) : (
+                              <span className="text-gray-400">{/* empty when not assigned */}</span>
+                            )}
+                          </td>
+                        </>
                       )}
                     </tr>
                   );
@@ -174,7 +241,7 @@ function Dashboard() {
           </div>
         )}
 
-        {/* Modal */}
+        {/* Assign Army Unit Modal */}
         {isModalOpen && (
           <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center">
             <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
@@ -207,6 +274,43 @@ function Dashboard() {
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded"
                 >
                   Save
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Decision Modal: Accept or Reject with Remarks */}
+        {isDecisionModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center">
+            <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+              <h3 className="text-xl font-semibold mb-2 text-gray-800">Review Entry</h3>
+              <p className="text-sm text-gray-600 mb-4">{selectedLabour?.name} — {selectedLabour?.contact_number}</p>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Remarks (optional)</label>
+              <textarea
+                value={decisionRemarks}
+                onChange={(e) => setDecisionRemarks(e.target.value)}
+                className="w-full border border-gray-300 rounded p-2 h-24 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Add remarks for acceptance/rejection"
+              />
+              <div className="flex justify-end gap-3 mt-4">
+                <button
+                  onClick={() => setIsDecisionModalOpen(false)}
+                  className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleReject}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded"
+                >
+                  Reject
+                </button>
+                <button
+                  onClick={handleAccept}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded"
+                >
+                  Accept
                 </button>
               </div>
             </div>

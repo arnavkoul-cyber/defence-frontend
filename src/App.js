@@ -6,6 +6,7 @@ import Dashboard from './components/Dashboard';
 import UnitData from './components/unitData';
 import Attendance from './components/attendance';
 import AttendanceDetails from './components/attendanceDetails';
+import Analytics from './components/Analytics';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 function App() {
@@ -17,6 +18,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/unitData" element={<UnitData />} />
+  <Route path="/analytics" element={<Analytics />} />
         <Route path="/attendance" element={<Attendance />} />
         <Route path="/attendanceDetails" element={<AttendanceDetails />} />
       </Routes>

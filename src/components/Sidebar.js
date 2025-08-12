@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FiUsers, FiDatabase, FiLogOut, FiHome, FiCheckSquare, FiFileText } from 'react-icons/fi'; // Feather icons from react-icons
+import { FiUsers, FiDatabase, FiLogOut, FiHome, FiCheckSquare, FiFileText, FiBarChart2 } from 'react-icons/fi'; // Feather icons from react-icons
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -44,7 +44,7 @@ function Sidebar({ bgColor }) {
     >
       <ToastContainer />
       <div className="mb-8 flex flex-col items-center justify-center">
-        <FiHome className="text-4xl mb-2" />
+        {/* <FiHome className="text-4xl mb-2" /> */}
         <span
           className="text-3xl font-extrabold text-center bg-gradient-to-r from-blue-400 via-blue-600 to-blue-800 bg-clip-text text-transparent drop-shadow-lg tracking-wide"
           style={{ letterSpacing: '1px', lineHeight: 1.1 }}
@@ -59,6 +59,12 @@ function Sidebar({ bgColor }) {
         </span>
       </div>
       <nav className="space-y-2">
+           {!isArmyDashboard && (
+          <Link to="/analytics" className={linkClasses('/analytics')}>
+            <FiBarChart2 />
+            <span>Analytics</span>
+          </Link>
+        )}
         <Link to="/dashboard" className={linkClasses('/dashboard')}>
           <FiUsers />
           <span>{isArmyDashboard ? 'Labourers Details' : 'Users'}</span>
@@ -74,6 +80,7 @@ function Sidebar({ bgColor }) {
             <span>Army Unit Data</span>
           </Link>
         )}
+     
         {isArmyDashboard && (
           <Link to="/attendanceDetails" className={linkClasses('/attendanceDetails')}>
             <FiFileText />
