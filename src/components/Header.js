@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { User, LogOut } from 'lucide-react';
+import { User, LogOut, Menu } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-function Header({ variant = 'blue', bgColor }) {
+function Header({ variant = 'blue', bgColor, isSidebarOpen, onToggleSidebar }) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -12,7 +12,7 @@ function Header({ variant = 'blue', bgColor }) {
     localStorage.getItem('mobile_number')
   );
 
-  const base = 'shadow-lg py-4 px-6 flex items-center justify-between w-full sticky top-0 z-50';
+  const base = 'relative shadow-lg py-4 px-6 flex items-center justify-between w-full sticky top-0 z-50';
   const theme =
     variant === 'glass'
       ? 'bg-black/30 backdrop-blur-md border-b border-white/20'

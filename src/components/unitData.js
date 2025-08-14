@@ -3,11 +3,12 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import Footer from './footer';
 import api from '../api/api';
-import { FiUsers } from 'react-icons/fi';
+import { FiUsers, FiChevronRight } from 'react-icons/fi';
 
 function UnitData() {
   const [labours, setLabours] = useState([]);
   const [sectors, setSectors] = useState([]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [armyUnits, setArmyUnits] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const entriesPerPage = 5;
@@ -42,10 +43,20 @@ function UnitData() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
-      <Header bgColor="#261d1a" />
+      <Header bgColor="#261d1a" isSidebarOpen={isSidebarOpen} onToggleSidebar={() => setIsSidebarOpen(true)} />
+      {!isSidebarOpen && (
+        <button
+          type="button"
+          aria-label="Open sidebar"
+          onClick={() => setIsSidebarOpen(true)}
+          className="fixed left-0 top-24 z-50 p-2 rounded-md bg-white text-blue-600 ring-1 ring-blue-300 shadow hover:bg-blue-50"
+        >
+          <FiChevronRight className="w-5 h-5" aria-hidden="true" />
+        </button>
+      )}
       <div className="flex flex-1">
-        <Sidebar bgColor="#261d1a" />
-        <main className="flex-1 px-6 pt-2 pb-24 ml-60 mt-1">
+        <Sidebar bgColor="#261d1a" isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(v => !v)} />
+        <main className={`flex-1 px-6 pt-2 pb-24 transition-all duration-300 ${isSidebarOpen ? 'ml-60' : 'ml-0'} mt-1`}>
         <div className="mb-5">
           <div className="flex items-end gap-3">
             <span className="h-10 w-10 rounded-full bg-blue-100 ring-1 ring-blue-200 shadow-sm flex items-center justify-center">
@@ -58,14 +69,14 @@ function UnitData() {
           <div className="mt-2 h-1.5 w-28 bg-gradient-to-r from-blue-600 to-sky-500 rounded-full"></div>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow">
+        <div className="hidden md:block overflow-hidden rounded-xl border border-gray-200 bg-white shadow">
           <table className="min-w-full divide-y divide-gray-200 text-gray-800">
             <thead className="bg-blue-600 text-white">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Father Name</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Contact</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Aadhaar</th>
+                {/* <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Aadhaar</th> */}
                 <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Sector</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Army Unit</th>
               </tr>
@@ -85,7 +96,7 @@ function UnitData() {
                       <td className="px-6 py-4">{capitalize(labour.name)}</td>
                       <td className="px-6 py-4">{capitalize(labour.father_name)}</td>
                       <td className="px-6 py-4">{labour.contact_number}</td>
-                      <td className="px-6 py-4">{labour.aadhaar_number}</td>
+                      {/* <td className="px-6 py-4">{labour.aadhaar_number}</td> */}
                       <td className="px-6 py-4">{getSectorName(labour.sector_id)}</td>
                       <td className="px-6 py-4">{getArmyUnitName(labour.army_unit_id)}</td>
                     </tr>
@@ -94,6 +105,41 @@ function UnitData() {
               )}
             </tbody>
           </table>
+        </div>
+        {/* Mobile Card List */}
+        <div className="md:hidden space-y-3">
+          {labours.length === 0 && (
+            <div className="text-center text-gray-500 bg-white border border-gray-200 rounded-lg py-6 shadow">No labours found.</div>
+          )}
+          {paginatedLabours.map(labour => {
+            const capitalize = (str) => str && typeof str === 'string' ? str.charAt(0).toUpperCase() + str.slice(1) : str;
+            return (
+              <div key={labour.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow">
+                <p className="font-semibold text-gray-800">{capitalize(labour.name)}</p>
+                <p className="text-xs text-gray-500 mt-0.5">Father: {capitalize(labour.father_name) || '—'}</p>
+                <p className="text-sm text-gray-600 mt-1">📞 {labour.contact_number}</p>
+                <div className="mt-2 text-xs space-y-1">
+                  <div><span className="font-semibold text-gray-700">Sector:</span> {getSectorName(labour.sector_id)}</div>
+                  <div><span className="font-semibold text-gray-700">Army Unit:</span> {getArmyUnitName(labour.army_unit_id)}</div>
+                </div>
+              </div>
+            );
+          })}
+          {labours.length > entriesPerPage && (
+            <div className="flex items-center justify-center gap-3 pt-1">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1 rounded bg-blue-600 text-white text-sm disabled:bg-gray-300"
+              >Prev</button>
+              <span className="text-sm font-medium text-gray-700">{currentPage}/{totalPages}</span>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 rounded bg-blue-600 text-white text-sm disabled:bg-gray-300"
+              >Next</button>
+            </div>
+          )}
         </div>
         {labours.length > entriesPerPage && (
           <div className="flex items-center justify-center mt-6 space-x-4">

@@ -3,13 +3,14 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import Footer from './footer';
 import api from '../api/api';
-import { FiFileText } from 'react-icons/fi';
+import { FiFileText, FiChevronRight } from 'react-icons/fi';
 
 
 const AttendanceDetails = () => {
   const [attendances, setAttendances] = useState([]);
   const [filterDate, setFilterDate] = useState('');
   const [filterLabourId, setFilterLabourId] = useState('');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const entriesPerPage = 5;
@@ -53,10 +54,20 @@ const AttendanceDetails = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
-      <Header bgColor="#261d1a" />
+      <Header bgColor="#261d1a" isSidebarOpen={isSidebarOpen} onToggleSidebar={() => setIsSidebarOpen(true)} />
+      {!isSidebarOpen && (
+        <button
+          type="button"
+          aria-label="Open sidebar"
+          onClick={() => setIsSidebarOpen(true)}
+          className="fixed left-0 top-24 z-50 p-2 rounded-md bg-white text-blue-600 ring-1 ring-blue-300 shadow hover:bg-blue-50"
+        >
+          <FiChevronRight className="w-5 h-5" aria-hidden="true" />
+        </button>
+      )}
       <div className="flex flex-1">
-        <Sidebar bgColor="#261d1a" />
-        <div className="flex-1 px-6 pt-2 overflow-x-auto pb-24 ml-60 mt-1">
+        <Sidebar bgColor="#261d1a" isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(v => !v)} />
+        <div className={`flex-1 px-6 pt-2 overflow-x-auto pb-24 transition-all duration-300 ${isSidebarOpen ? 'ml-60' : 'ml-0'} mt-1`}>
         <div className="mb-5">
           <div className="flex items-end gap-3">
             <span className="h-10 w-10 rounded-full bg-blue-100 ring-1 ring-blue-200 shadow-sm flex items-center justify-center">
@@ -105,7 +116,7 @@ const AttendanceDetails = () => {
             )}
           </div>
         </div>
-        <div className="bg-white rounded-xl shadow-lg p-4">
+        <div className="bg-white rounded-xl shadow-lg p-4 hidden md:block">
           <table className="min-w-full divide-y divide-gray-200">
             <thead>
               <tr>
@@ -167,6 +178,43 @@ const AttendanceDetails = () => {
         )}
             </tbody>
           </table>
+        </div>
+        {/* Mobile Card List */}
+        <div className="md:hidden space-y-3">
+          {attendances.length === 0 && (
+            <div className="text-center text-gray-500 bg-white border border-gray-200 rounded-lg py-6 shadow">No attendance records found.</div>
+          )}
+          {paginatedAttendances.map(a => (
+            <div key={a.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow flex gap-4">
+              <div className="flex-shrink-0">
+                <img
+                  src={a.photo_path ? (a.photo_path.startsWith('http') ? a.photo_path : `http://localhost:5000/${a.photo_path}`) : 'https://img.icons8.com/fluency/48/no-image.png'}
+                  alt="Attendance"
+                  className="w-16 h-16 object-cover rounded border"
+                  onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-gray-800 truncate">{a.labour_name}</p>
+                <p className="text-xs text-gray-500 mt-0.5">Date: {formatDate(a.attendance_date)} | {formatTime(a.attendance_time)}</p>
+              </div>
+            </div>
+          ))}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-3 pt-1">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1 rounded bg-blue-600 text-white text-sm disabled:bg-gray-300"
+              >Prev</button>
+              <span className="text-sm font-medium text-gray-700">{currentPage}/{totalPages}</span>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 rounded bg-blue-600 text-white text-sm disabled:bg-gray-300"
+              >Next</button>
+            </div>
+          )}
         </div>
         </div>
       </div>

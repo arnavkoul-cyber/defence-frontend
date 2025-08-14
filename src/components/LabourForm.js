@@ -10,12 +10,14 @@ function LabourForm() {
     name: '',
     father_name: '',
     sector_id: '',
+  labour_type: '',
     contact_number: '',
   aadhaar_number: '',
   bank_name: '',
   bank_account_no: '',
   bank_ifsc_code: '',
-  adhar_path: '',
+  adhar_path: '', // data URL preview
+  adharFile: null, // actual file to send
   });
 
   const [sectors, setSectors] = useState([]);
@@ -73,6 +75,7 @@ function LabourForm() {
     }
   };
 
+  
   const handleCloseCamera = () => {
     setShowCamera(false);
     if (videoRef.current && videoRef.current.srcObject) {
@@ -84,7 +87,8 @@ function LabourForm() {
     const newErrors = {};
     if (!formData.name.trim()) newErrors.name = 'Name is required.';
     if (!formData.father_name.trim()) newErrors.father_name = 'Father name is required.';
-    if (!formData.sector_id) newErrors.sector_id = 'Sector selection is required.';
+  if (!formData.sector_id) newErrors.sector_id = 'Sector selection is required.';
+  if (!formData.labour_type) newErrors.labour_type = 'Labour type is required.';
     if (!formData.contact_number.trim()) {
       newErrors.contact_number = 'Contact number is required.';
     } else if (!/^\d{10}$/.test(formData.contact_number.trim())) {
@@ -102,16 +106,22 @@ function LabourForm() {
       if (!formData.bank_name.trim()) newErrors.bank_name = 'Bank name is required.';
       if (!formData.bank_account_no.trim()) newErrors.bank_account_no = 'Account number is required.';
       else if (!/^\d{6,18}$/.test(formData.bank_account_no.trim())) newErrors.bank_account_no = 'Enter a valid account number.';
-      if (!formData.bank_ifsc_code.trim()) newErrors.bank_ifsc_code = 'IFSC code is required.';
-      else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/i.test(formData.bank_ifsc_code.trim())) newErrors.bank_ifsc_code = 'Enter a valid IFSC code.';
-      if (!formData.adhar_path) newErrors.adhar_path = 'Aadhaar image is required.';
+  if (!formData.bank_ifsc_code.trim()) newErrors.bank_ifsc_code = 'IFSC code is required.';
+  else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/i.test(formData.bank_ifsc_code.trim())) newErrors.bank_ifsc_code = 'Enter a valid IFSC code.';
+  if (!formData.adharFile) newErrors.adhar_path = 'Aadhaar image is required.';
     }
     return newErrors;
   };
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    setErrors({ ...errors, [e.target.name]: undefined });
+    const { name } = e.target;
+    let { value } = e.target;
+    // Force digits only for certain numeric fields
+    if (['contact_number', 'aadhaar_number', 'bank_account_no'].includes(name)) {
+      value = value.replace(/\D/g, '');
+    }
+    setFormData({ ...formData, [name]: value });
+    setErrors({ ...errors, [name]: undefined });
   };
 
   const handleSectorChange = (selectedValue) => {
@@ -127,6 +137,7 @@ function LabourForm() {
       (formData.name || '').trim() &&
       (formData.father_name || '').trim() &&
       (formData.sector_id || '') &&
+  (formData.labour_type || '') &&
       contactOk &&
       aadhaarOk &&
       capturedPhoto
@@ -138,12 +149,23 @@ function LabourForm() {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      setFormData((prev) => ({ ...prev, adhar_path: reader.result }));
+      setFormData((prev) => ({ ...prev, adhar_path: reader.result, adharFile: file }));
       setErrors((prev) => ({ ...prev, adhar_path: undefined }));
     };
     reader.readAsDataURL(file);
   };
 
+  // Convert a data URL to a File (for captured photo and optional Aadhaar data URL)
+  const dataURLtoFile = (dataUrl, filename) => {
+    const arr = dataUrl.split(',');
+    const mimeMatch = arr[0].match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) u8arr[n] = bstr.charCodeAt(n);
+    return new File([u8arr], filename, { type: mime });
+  };
   const handleSubmit = async (e) => {
     e.preventDefault();
     const validationErrors = validate();
@@ -154,40 +176,51 @@ function LabourForm() {
 
     setSubmitting(true);
     try {
-      // Prepare payload
-      const payload = {
-        name: formData.name,
-        father_name: formData.father_name,
-        sector_id: formData.sector_id,
-        contact_number: formData.contact_number,
-        aadhaar_number: formData.aadhaar_number,
-        photo: capturedPhoto, // base64 image
-        // Bank details (as requested keys)
-        bank_name: formData.bank_name || undefined,
-        bank_account_no: formData.bank_account_no || undefined,
-        bank_ifsc_code: formData.bank_ifsc_code || undefined,
-        adhar_path: formData.adhar_path || undefined,
-      };
- 
-      const response = await api.post('/labour/register', payload);
- toast.success('Labour registered successfully!', { position: 'top-center', autoClose: 2500 });
-   
-      
-        setFormData({
-          name: '',
-          father_name: '',
-          sector_id: '',
-          contact_number: '',
-          aadhaar_number: '',
-          bank_name: '',
-          bank_account_no: '',
-          bank_ifsc_code: '',
-          adhar_path: '',
-        });
-        setCapturedPhoto(null);
-        setShowBankForm(false);
-        setErrors({});
-      
+      // Build multipart form data to send files
+      const form = new FormData();
+      form.append('name', formData.name);
+      form.append('father_name', formData.father_name);
+      form.append('sector_id', formData.sector_id);
+  form.append('contact_number', formData.contact_number);
+  form.append('labour_type', formData.labour_type);
+      form.append('aadhaar_number', formData.aadhaar_number);
+      if (formData.bank_name) form.append('bank_name', formData.bank_name);
+      if (formData.bank_account_no) form.append('bank_account_no', formData.bank_account_no);
+      if (formData.bank_ifsc_code) form.append('bank_ifsc_code', formData.bank_ifsc_code.toUpperCase());
+
+      // Files: convert capturedPhoto (data URL) to File, and append Aadhaar
+      if (capturedPhoto) {
+        const photoFile = dataURLtoFile(capturedPhoto, 'photo.png');
+        form.append('photo', photoFile);
+      }
+      if (formData.adharFile) {
+        form.append('adhar', formData.adharFile);
+      } else if (formData.adhar_path) {
+        const adharFile = dataURLtoFile(formData.adhar_path, 'aadhaar.jpg');
+        form.append('adhar', adharFile);
+      }
+
+      await api.post('/labour/register', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      toast.success('Labour registered successfully!', { position: 'top-center', autoClose: 2500 });
+
+      setFormData({
+        name: '',
+        father_name: '',
+        sector_id: '',
+  labour_type: '',
+        contact_number: '',
+        aadhaar_number: '',
+        bank_name: '',
+        bank_account_no: '',
+        bank_ifsc_code: '',
+        adhar_path: '',
+        adharFile: null,
+      });
+      setCapturedPhoto(null);
+      setShowBankForm(false);
+      setErrors({});
     } catch (err) {
       toast.error(err.response?.data?.message || err.response?.data?.error || 'Error registering labour');
     } finally {
@@ -298,28 +331,59 @@ function LabourForm() {
 
                     <div className="space-y-2">
                       <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                        <Phone className="w-4 h-4 text-blue-600" />
-                        Contact Number
+                        <Building className="w-4 h-4 text-blue-600" />
+                        Labour Type
                       </label>
                       <div className="relative">
-                        <input
-                          type="text"
-                          name="contact_number"
-                          value={formData.contact_number}
+                        <select
+                          name="labour_type"
+                          value={formData.labour_type}
                           onChange={handleChange}
-                          className={`w-full p-4 pl-12 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all duration-200 ${
-                            errors.contact_number ? 'border-red-400 bg-red-50' : 'border-white/50 md:border-gray-200 focus:border-blue-300'
-                          } bg-white/70 md:bg-white placeholder:text-gray-400`}
-                          placeholder="10-digit mobile number"
-                          maxLength={10}
-                        />
-                        <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-blue-500" />
+                          className={`w-full p-4 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all duration-200 ${
+                            errors.labour_type ? 'border-red-400 bg-red-50' : 'border-white/50 md:border-gray-200 focus:border-blue-300'
+                          } bg-white/70 md:bg-white text-gray-700 appearance-none`}
+                        >
+                          <option value="">Select labour type</option>
+                          <option value="Pony">Pony</option>
+                          <option value="Porter">Porter</option>
+                        </select>
+                        <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                          <svg className="w-4 h-4 fill-current text-gray-400" viewBox="0 0 20 20">
+                            <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                          </svg>
+                        </div>
                       </div>
-                      {formData.contact_number && formData.contact_number.length !== 10 && (
-                        <p className="text-amber-600 text-sm">Please enter a complete 10-digit number</p>
-                      )}
-                      {errors.contact_number && <p className="text-red-500 text-sm flex items-center gap-1"><X className="w-4 h-4" />{errors.contact_number}</p>}
+                      {errors.labour_type && <p className="text-red-500 text-sm flex items-center gap-1"><X className="w-4 h-4" />{errors.labour_type}</p>}
                     </div>
+                  </div>
+
+                  {/* Contact Number */}
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                      <Phone className="w-4 h-4 text-blue-600" />
+                      Contact Number
+                    </label>
+                    <div className="relative max-w-md">
+                      <input
+                        type="text"
+                        name="contact_number"
+                        value={formData.contact_number}
+                        onChange={handleChange}
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        className={`w-full p-4 pl-12 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all duration-200 ${
+                          errors.contact_number ? 'border-red-400 bg-red-50' : 'border-white/50 md:border-gray-200 focus:border-blue-300'
+                        } bg-white/70 md:bg-white placeholder:text-gray-400`}
+                        placeholder="10-digit mobile number"
+                        maxLength={10}
+                        autoComplete="tel"
+                      />
+                      <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-blue-500" />
+                    </div>
+                    {formData.contact_number && formData.contact_number.length !== 10 && (
+                      <p className="text-amber-600 text-sm">Please enter a complete 10-digit number</p>
+                    )}
+                    {errors.contact_number && <p className="text-red-500 text-sm flex items-center gap-1"><X className="w-4 h-4" />{errors.contact_number}</p>}
                   </div>
 
                   {/* Row 3: Aadhaar Number */}
@@ -334,11 +398,14 @@ function LabourForm() {
                         name="aadhaar_number"
                         value={formData.aadhaar_number}
                         onChange={handleChange}
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         className={`w-full p-4 pl-12 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all duration-200 ${
                           errors.aadhaar_number ? 'border-red-400 bg-red-50' : 'border-white/50 md:border-gray-200 focus:border-blue-300'
                         } bg-white/70 md:bg-white placeholder:text-gray-400`}
                         placeholder="12-digit Aadhaar number"
                         maxLength={12}
+                        autoComplete="off"
                       />
                       <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-blue-500" />
                     </div>
@@ -454,8 +521,12 @@ function LabourForm() {
                             name="bank_account_no"
                             value={formData.bank_account_no}
                             onChange={handleChange}
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             className={`w-full p-4 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-300 ${errors.bank_account_no ? 'border-red-400 bg-red-50' : 'border-white/50 md:border-gray-200'}`}
                             placeholder="Enter account number"
+                            maxLength={18}
+                            autoComplete="off"
                           />
                           {errors.bank_account_no && <p className="text-red-500 text-sm">{errors.bank_account_no}</p>}
                         </div>

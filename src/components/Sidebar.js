@@ -1,10 +1,10 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FiUsers, FiDatabase, FiLogOut, FiHome, FiCheckSquare, FiFileText, FiBarChart2 } from 'react-icons/fi'; // Feather icons from react-icons
+import { FiUsers, FiDatabase, FiLogOut, FiHome, FiCheckSquare, FiFileText, FiBarChart2, FiMenu } from 'react-icons/fi'; // Feather icons from react-icons
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-function Sidebar({ bgColor }) {
+function Sidebar({ bgColor, isOpen = true, onToggle }) {
   const location = useLocation();
   let dashboardTitle;
   const armyUnitId = localStorage.getItem('army_unit_id');
@@ -39,10 +39,19 @@ function Sidebar({ bgColor }) {
 
   return (
     <div
-      className={`w-60 ${bgColor ? '' : 'bg-gray-900'} text-white p-4 shadow-lg fixed top-20 left-0 bottom-0 overflow-y-auto`}
+      className={`w-60 ${bgColor ? '' : 'bg-gray-900'} text-white p-4 shadow-lg fixed top-20 left-0 bottom-0 overflow-y-auto transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
       style={bgColor ? { backgroundColor: bgColor } : undefined}
     >
       <ToastContainer />
+      {/* Hamburger toggle */}
+      <button
+        type="button"
+        aria-label="Toggle sidebar"
+        onClick={onToggle}
+        className="absolute top-2 right-2 p-2 rounded-md bg-white/10 hover:bg-white/20 text-white"
+      >
+        <FiMenu />
+      </button>
       <div className="mb-8 flex flex-col items-center justify-center">
         {/* <FiHome className="text-4xl mb-2" /> */}
         <span
@@ -59,15 +68,13 @@ function Sidebar({ bgColor }) {
         </span>
       </div>
       <nav className="space-y-2">
-           {!isArmyDashboard && (
-          <Link to="/analytics" className={linkClasses('/analytics')}>
-            <FiBarChart2 />
-            <span>Analytics</span>
-          </Link>
-        )}
+        <Link to="/analytics" className={linkClasses('/analytics')}>
+          <FiBarChart2 />
+          <span>Analytics</span>
+        </Link>
         <Link to="/dashboard" className={linkClasses('/dashboard')}>
           <FiUsers />
-          <span>{isArmyDashboard ? 'Labourers Details' : 'Users'}</span>
+          <span>{isArmyDashboard ? 'Labourers Details' : 'Assign Labourers'}</span>
         </Link>
         {isArmyDashboard ? (
           <Link to="/attendance" className={linkClasses('/attendance')}>
