@@ -267,7 +267,7 @@ function Dashboard() {
                       <td className="px-6 py-4">
                         {labour.photo_path ? (
                           <img
-                            src={`http://localhost:5000/${labour.photo_path}`}
+                            src={labour.photo_path ? `${api.defaults.baseURL.replace(/\/api$/, '')}/${labour.photo_path}` : 'https://img.icons8.com/fluency/48/no-image.png'}
                             alt="Labour"
                             className="w-12 h-12 object-cover rounded shadow border border-gray-200"
                             onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
@@ -285,7 +285,7 @@ function Dashboard() {
                       <td className="px-6 py-4">
                         {labour.adhar_path ? (
                           <img
-                            src={`http://localhost:5000/${labour.adhar_path}`}
+                            src={labour.adhar_path ? `${api.defaults.baseURL.replace(/\/api$/, '')}/${labour.adhar_path}` : 'https://img.icons8.com/fluency/48/no-image.png'}
                             alt="Aadhaar"
                             className="w-12 h-12 object-cover rounded shadow border border-gray-200"
                             onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
@@ -338,7 +338,7 @@ function Dashboard() {
               <div key={labour.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow flex gap-4">
                 <div className="flex-shrink-0">
                   <img
-                    src={labour.photo_path ? `http://localhost:5000/${labour.photo_path}` : 'https://img.icons8.com/fluency/48/no-image.png'}
+                    src={labour.photo_path ? `${api.defaults.baseURL.replace(/\/api$/, '')}/${labour.photo_path}` : 'https://img.icons8.com/fluency/48/no-image.png'}
                     alt="Labour"
                     className="w-16 h-16 object-cover rounded shadow"
                     onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
@@ -352,7 +352,7 @@ function Dashboard() {
                   <p className="text-sm text-gray-600 mt-1">📞 {labour.contact_number}</p>
                   <div className="mt-2 flex items-center gap-2">
                     <img
-                      src={labour.adhar_path ? `http://localhost:5000/${labour.adhar_path}` : 'https://img.icons8.com/fluency/48/no-image.png'}
+                      src={labour.adhar_path ? `${api.defaults.baseURL.replace(/\/api$/, '')}/${labour.adhar_path}` : 'https://img.icons8.com/fluency/48/no-image.png'}
                       alt="Aadhaar"
                       className="w-10 h-10 object-cover rounded border"
                       onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}

@@ -10,6 +10,32 @@ const AttendanceDetails = () => {
   const [attendances, setAttendances] = useState([]);
   const [filterDate, setFilterDate] = useState('');
   const [filterLabourId, setFilterLabourId] = useState('');
+  const [filterLabourName, setFilterLabourName] = useState('');
+  const [isFetchingLabourId, setIsFetchingLabourId] = useState(false);
+  // Fetch labour ID by name and set filterLabourId
+  useEffect(() => {
+    const fetchLabourIdByName = async () => {
+      if (!filterLabourName) return;
+      setIsFetchingLabourId(true);
+      try {
+        // Get all labours for this army unit
+        const army_unit_id = localStorage.getItem('army_unit_id');
+        const res = await api.get(`/labour/assigned/${localStorage.getItem('mobile_number')}`);
+        const labours = res.data.labours || [];
+        const found = labours.find(l => l.name && l.name.toLowerCase() === filterLabourName.trim().toLowerCase());
+        if (found) {
+          setFilterLabourId(found.id);
+        } else {
+          setFilterLabourId('');
+        }
+      } catch (err) {
+        setFilterLabourId('');
+      } finally {
+        setIsFetchingLabourId(false);
+      }
+    };
+    fetchLabourIdByName();
+  }, [filterLabourName]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -97,30 +123,34 @@ const AttendanceDetails = () => {
             )}
           </div>
           <div>
-            <label className="font-semibold mr-2">Filter by Labour ID:</label>
+            <label className="font-semibold mr-2">Filter by Labour Name:</label>
             <input
-              type="number"
-              min="1"
-              value={filterLabourId}
-              onChange={e => setFilterLabourId(e.target.value)}
-              className="border rounded px-2 py-1 w-28"
-              placeholder="Enter ID"
+              type="text"
+              value={filterLabourName}
+              onChange={e => setFilterLabourName(e.target.value)}
+              className="border rounded px-2 py-1 w-36"
+              placeholder="Enter name"
+              autoComplete="off"
             />
-            {filterLabourId && (
+            {filterLabourName && (
               <button
                 className="ml-2 px-2 py-1 bg-gray-300 rounded hover:bg-gray-400"
-                onClick={() => setFilterLabourId('')}
+                onClick={() => { setFilterLabourName(''); setFilterLabourId(''); }}
               >
                 Clear
               </button>
             )}
+            {isFetchingLabourId && <span className="ml-2 text-xs text-gray-500">Searching...</span>}
           </div>
         </div>
         <div className="bg-white rounded-xl shadow-lg p-4 hidden md:block">
           <table className="min-w-full divide-y divide-gray-200">
             <thead>
               <tr>
-                <th className="px-4 py-2 text-left font-semibold">Labour Name</th>
+                {/* Hide Labour Name column if filtering by name and labour_name is not present */}
+                {!filterLabourName ? (
+                  <th className="px-4 py-2 text-left font-semibold">Labour Name</th>
+                ) : null}
                 <th className="px-4 py-2 text-left font-semibold">Attendance Date</th>
                 <th className="px-4 py-2 text-left font-semibold">Attendance Time</th>
                 <th className="px-4 py-2 text-left font-semibold">Photo</th>
@@ -128,19 +158,24 @@ const AttendanceDetails = () => {
             </thead>
             <tbody>
               {attendances.length === 0 ? (
-                <tr><td colSpan={4} className="text-center py-4">No attendance records found.</td></tr>
+                <tr><td colSpan={filterLabourName ? 3 : 4} className="text-center py-4">No attendance records found.</td></tr>
               ) : (
                 paginatedAttendances.map((a) => (
                   <tr key={a.id} className="border-b">
-                    <td className="px-4 py-2">{a.labour_name}</td>
+                    {/* Hide Labour Name cell if filtering by name and labour_name is not present */}
+                    {!filterLabourName ? (
+                      <td className="px-4 py-2">{a.labour_name}</td>
+                    ) : null}
                     <td className="px-4 py-2">{formatDate(a.attendance_date)}</td>
                     <td className="px-4 py-2">{formatTime(a.attendance_time)}</td>
                     <td className="px-4 py-2">
                       {a.photo_path ? (
                         <img
-                          src={a.photo_path.startsWith('http')
-                            ? a.photo_path
-                            : `http://localhost:5000/${a.photo_path}`}
+                          src={a.photo_path
+                            ? (a.photo_path.startsWith('http')
+                              ? a.photo_path
+                              : `${api.defaults.baseURL.replace(/\/api$/, '')}/${a.photo_path}`)
+                            : 'https://img.icons8.com/fluency/48/no-image.png'}
                           alt="Attendance"
                           className="w-16 h-16 object-cover rounded shadow border border-gray-200"
                           onError={e => { e.target.onerror = null; e.target.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
@@ -188,7 +223,11 @@ const AttendanceDetails = () => {
             <div key={a.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow flex gap-4">
               <div className="flex-shrink-0">
                 <img
-                  src={a.photo_path ? (a.photo_path.startsWith('http') ? a.photo_path : `http://localhost:5000/${a.photo_path}`) : 'https://img.icons8.com/fluency/48/no-image.png'}
+                  src={a.photo_path
+                    ? (a.photo_path.startsWith('http')
+                      ? a.photo_path
+                      : `${api.defaults.baseURL.replace(/\/api$/, '')}/${a.photo_path}`)
+                    : 'https://img.icons8.com/fluency/48/no-image.png'}
                   alt="Attendance"
                   className="w-16 h-16 object-cover rounded border"
                   onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
