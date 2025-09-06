@@ -99,7 +99,7 @@ function LabourForm() {
     } else if (!/^\d{12}$/.test(formData.aadhaar_number.trim())) {
       newErrors.aadhaar_number = 'Aadhaar number must be 12 digits.';
     }
-    if (!capturedPhoto) newErrors.capturedPhoto = 'Photo capture is required.';
+  // Photo capture validation removed for HTTP testing
 
     // If bank details form is shown, validate those too
     if (showBankForm) {
@@ -137,10 +137,10 @@ function LabourForm() {
       (formData.name || '').trim() &&
       (formData.father_name || '').trim() &&
       (formData.sector_id || '') &&
-  (formData.labour_type || '') &&
+      (formData.labour_type || '') &&
       contactOk &&
-      aadhaarOk &&
-      capturedPhoto
+      aadhaarOk
+      // capturedPhoto removed from required fields for HTTP testing
     );
   };
 
