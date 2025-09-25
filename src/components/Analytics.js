@@ -199,14 +199,77 @@ function Analytics() {
             </>
           )}
           {isArmyDashboard && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-              <StatsCard title="Assigned Labourers" value={labours.length} icon={<FiUsers className="text-blue-600 w-5 h-5" />} color="bg-blue-50" />
-              <StatsCard title="Present Today" value={attendanceToday.present} subtitle={todayStr} icon={<FiCheckCircle className="text-green-600 w-5 h-5" />} color="bg-green-50" />
-              <StatsCard title="Absent Today" value={attendanceToday.absent} subtitle={todayStr} icon={<FiAlertCircle className="text-red-600 w-5 h-5" />} color="bg-red-50" />
-              <StatsCard title="Marked % Today" value={labours.length ? Math.round((attendanceToday.present / labours.length) * 100) + '%' : '0%'} subtitle={`${attendanceToday.present}/${labours.length}`} icon={<FiPercent className="text-indigo-600 w-5 h-5" />} color="bg-indigo-50" />
-              <StatsCard title="Attendance Records Today" value={attendanceToday.totalRecords} icon={<FiActivity className="text-purple-600 w-5 h-5" />} color="bg-purple-50" />
-              <StatsCard title="Remaining to Mark" value={Math.max(labours.length - attendanceToday.present, 0)} icon={<FiAlertCircle className="text-amber-600 w-5 h-5" />} color="bg-amber-50" />
-            </div>
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                <StatsCard title="Assigned Labourers" value={labours.length} icon={<FiUsers className="text-blue-600 w-5 h-5" />} color="bg-blue-50" />
+                <StatsCard title="Present Today" value={attendanceToday.present} subtitle={todayStr} icon={<FiCheckCircle className="text-green-600 w-5 h-5" />} color="bg-green-50" />
+                <StatsCard title="Absent Today" value={attendanceToday.absent} subtitle={todayStr} icon={<FiAlertCircle className="text-red-600 w-5 h-5" />} color="bg-red-50" />
+                <StatsCard title="Marked % Today" value={labours.length ? Math.round((attendanceToday.present / labours.length) * 100) + '%' : '0%'} subtitle={`${attendanceToday.present}/${labours.length}`} icon={<FiPercent className="text-indigo-600 w-5 h-5" />} color="bg-indigo-50" />
+                <StatsCard title="Attendance Records Today" value={attendanceToday.totalRecords} icon={<FiActivity className="text-purple-600 w-5 h-5" />} color="bg-purple-50" />
+                <StatsCard title="Remaining to Mark" value={Math.max(labours.length - attendanceToday.present, 0)} icon={<FiAlertCircle className="text-amber-600 w-5 h-5" />} color="bg-amber-50" />
+              </div>
+              {/* Charts Section for Army Dashboard */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-4">
+                <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col items-center transition-transform duration-200 hover:scale-105 hover:shadow-xl cursor-pointer">
+                  <h3 className="text-lg font-bold mb-2 text-blue-600">Attendance Status</h3>
+                  <Doughnut
+                    data={{
+                      labels: ['Present', 'Absent'],
+                      datasets: [
+                        {
+                          data: [attendanceToday.present, attendanceToday.absent],
+                          backgroundColor: ['#3b82f6', '#ef4444'],
+                          borderWidth: 2,
+                        },
+                      ],
+                    }}
+                    options={{
+                      plugins: { legend: { display: true, position: 'bottom' } },
+                      cutout: '70%',
+                    }}
+                    style={{ maxHeight: 260 }}
+                  />
+                  <div className="mt-4 text-center">
+                    <span className="font-semibold text-gray-700">Present: </span>
+                    <span className="text-blue-600 font-bold">{attendanceToday.present}</span>
+                    <span className="mx-2">|</span>
+                    <span className="font-semibold text-gray-700">Absent: </span>
+                    <span className="text-red-600 font-bold">{attendanceToday.absent}</span>
+                  </div>
+                </div>
+                <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col items-center transition-transform duration-200 hover:scale-105 hover:shadow-xl cursor-pointer">
+                  <h3 className="text-lg font-bold mb-2 text-green-600">Attendance Records Over Time</h3>
+                  <Line
+                    data={{
+                      labels: [todayStr],
+                      datasets: [
+                        {
+                          label: 'Attendance Records',
+                          data: [attendanceToday.totalRecords],
+                          fill: false,
+                          borderColor: '#10b981',
+                          backgroundColor: '#10b981',
+                          tension: 0.3,
+                          pointRadius: 4,
+                        },
+                      ],
+                    }}
+                    options={{
+                      plugins: { legend: { display: false } },
+                      scales: {
+                        y: { beginAtZero: true, grid: { color: '#f3f4f6' } },
+                        x: { grid: { color: '#f3f4f6' } },
+                      },
+                    }}
+                    style={{ maxHeight: 260 }}
+                  />
+                  <div className="mt-4 text-center">
+                    <span className="font-semibold text-gray-700">Total Records: </span>
+                    <span className="text-green-600 font-bold">{attendanceToday.totalRecords}</span>
+                  </div>
+                </div>
+              </div>
+            </>
           )}
         </main>
       </div>
