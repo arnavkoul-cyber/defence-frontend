@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { User, LogOut, Menu } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-function Header({ variant = 'blue', bgColor, isSidebarOpen, onToggleSidebar }) {
+function Header({ variant = 'blue', bgColor, isSidebarOpen, onToggleSidebar, emblemColor }) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -18,7 +18,7 @@ function Header({ variant = 'blue', bgColor, isSidebarOpen, onToggleSidebar }) {
       ? 'bg-black/30 backdrop-blur-md border-b border-white/20'
       : bgColor
       ? ''
-      : 'bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400';
+      : 'bg-gradient-to-r from-[#67a8f7] to-[#67a8f7]';
 
   const style = bgColor && variant !== 'glass' ? { backgroundColor: bgColor } : undefined;
 
@@ -53,7 +53,7 @@ function Header({ variant = 'blue', bgColor, isSidebarOpen, onToggleSidebar }) {
            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-wide drop-shadow-sm">
           Directorate of Defence Labour Procurement, J&K and Ladakh
            </h1>
-           <h2 className="text-sm sm:text-base font-medium text-blue-100 mt-1">
+           <h2 className="text-sm sm:text-base font-medium text-white/90 mt-1">
              Government of J&K
            </h2>
          </div>

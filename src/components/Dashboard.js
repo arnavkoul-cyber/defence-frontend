@@ -184,7 +184,7 @@ function Dashboard() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
-      <Header bgColor="#261d1a" isSidebarOpen={isSidebarOpen} onToggleSidebar={() => setIsSidebarOpen(true)} />
+  <Header bgColor="rgb(11,80,162)" emblemColor="blue" isSidebarOpen={isSidebarOpen} onToggleSidebar={() => setIsSidebarOpen(true)} />
       {!isSidebarOpen && (
         <button
           type="button"
@@ -197,7 +197,7 @@ function Dashboard() {
         </button>
       )}
       <div className="flex flex-1">
-    <Sidebar bgColor="#261d1a" isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen((v) => !v)} />
+  <Sidebar bgColor="rgb(11,80,162)" isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen((v) => !v)} />
   <main className={`flex-1 px-6 pt-2 pb-24 transition-all duration-300 ${isSidebarOpen ? 'ml-60' : 'ml-0'} mt-1`}>
           <div className="mb-5">
             <div className="flex items-center justify-between gap-3">
@@ -267,7 +267,7 @@ function Dashboard() {
                       <td className="px-6 py-4">
                         {labour.photo_path ? (
                           <img
-                            src={labour.photo_path ? `${api.defaults.baseURL.replace(/\/api$/, '')}/${labour.photo_path}` : 'https://img.icons8.com/fluency/48/no-image.png'}
+                            src={`http://localhost:5000/${labour.photo_path}`}
                             alt="Labour"
                             className="w-12 h-12 object-cover rounded shadow border border-gray-200"
                             onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
@@ -285,7 +285,7 @@ function Dashboard() {
                       <td className="px-6 py-4">
                         {labour.adhar_path ? (
                           <img
-                            src={labour.adhar_path ? `${api.defaults.baseURL.replace(/\/api$/, '')}/${labour.adhar_path}` : 'https://img.icons8.com/fluency/48/no-image.png'}
+                            src={`http://localhost:5000/${labour.adhar_path}`}
                             alt="Aadhaar"
                             className="w-12 h-12 object-cover rounded shadow border border-gray-200"
                             onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
@@ -338,7 +338,7 @@ function Dashboard() {
               <div key={labour.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow flex gap-4">
                 <div className="flex-shrink-0">
                   <img
-                    src={labour.photo_path ? `${api.defaults.baseURL.replace(/\/api$/, '')}/${labour.photo_path}` : 'https://img.icons8.com/fluency/48/no-image.png'}
+                    src={labour.photo_path ? `http://localhost:5000/${labour.photo_path}` : 'https://img.icons8.com/fluency/48/no-image.png'}
                     alt="Labour"
                     className="w-16 h-16 object-cover rounded shadow"
                     onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
@@ -352,7 +352,7 @@ function Dashboard() {
                   <p className="text-sm text-gray-600 mt-1">📞 {labour.contact_number}</p>
                   <div className="mt-2 flex items-center gap-2">
                     <img
-                      src={labour.adhar_path ? `${api.defaults.baseURL.replace(/\/api$/, '')}/${labour.adhar_path}` : 'https://img.icons8.com/fluency/48/no-image.png'}
+                      src={labour.adhar_path ? `http://localhost:5000/${labour.adhar_path}` : 'https://img.icons8.com/fluency/48/no-image.png'}
                       alt="Aadhaar"
                       className="w-10 h-10 object-cover rounded border"
                       onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
@@ -531,7 +531,7 @@ function Dashboard() {
         )}
         </main>
       </div>
-  <Footer bgColor="#261d1a" />
+  <Footer bgColor="rgb(11,80,162)" />
     </div>
   );
 }

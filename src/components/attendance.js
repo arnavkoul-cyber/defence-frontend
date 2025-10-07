@@ -185,7 +185,7 @@ const Attendance = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
-      <Header bgColor="#261d1a" isSidebarOpen={isSidebarOpen} onToggleSidebar={() => setIsSidebarOpen(true)} />
+  <Header bgColor="rgb(11,80,162)" emblemColor="blue" isSidebarOpen={isSidebarOpen} onToggleSidebar={() => setIsSidebarOpen(true)} />
       {!isSidebarOpen && (
         <button
           type="button"
@@ -204,7 +204,7 @@ const Attendance = () => {
         </div>
       )}
       <div className="flex flex-1">
-  <Sidebar bgColor="#261d1a" isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(v => !v)} />
+  <Sidebar bgColor="rgb(11,80,162)" isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(v => !v)} />
   <div className={`flex-1 px-6 pt-2 overflow-x-auto pb-24 transition-all duration-300 ${isSidebarOpen ? 'ml-60' : 'ml-0'} mt-1`}>
         <div className="mb-5">
           <div className="flex items-end gap-3">
@@ -378,7 +378,7 @@ const Attendance = () => {
         )}
         </div>
       </div>
-      <Footer bgColor="#261d1a" />
+  <Footer bgColor="rgb(11,80,162)" />
     </div>
   );
 };

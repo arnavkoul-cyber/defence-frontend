@@ -40,7 +40,7 @@ function Sidebar({ bgColor, isOpen = true, onToggle }) {
   return (
     <div
       className={`w-60 ${bgColor ? '' : 'bg-gray-900'} text-white p-4 shadow-lg fixed top-20 left-0 bottom-0 overflow-y-auto transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
-      style={bgColor ? { backgroundColor: bgColor } : undefined}
+  style={bgColor ? { backgroundColor: bgColor } : undefined}
     >
       <ToastContainer />
       {/* Hamburger toggle */}
@@ -55,13 +55,13 @@ function Sidebar({ bgColor, isOpen = true, onToggle }) {
       <div className="mb-8 flex flex-col items-center justify-center">
         {/* <FiHome className="text-4xl mb-2" /> */}
         <span
-          className="text-3xl font-extrabold text-center bg-gradient-to-r from-blue-400 via-blue-600 to-blue-800 bg-clip-text text-transparent drop-shadow-lg tracking-wide"
+          className="text-3xl font-extrabold text-center text-white drop-shadow-lg tracking-wide"
           style={{ letterSpacing: '1px', lineHeight: 1.1 }}
         >
           {dashboardTitle.split(' ')[0]}
         </span>
         <span
-          className="text-xl font-bold text-center text-gray-200 tracking-wide mt-0.5"
+          className="text-xl font-bold text-center text-white/90 tracking-wide mt-0.5"
           style={{ letterSpacing: '0.5px' }}
         >
           {dashboardTitle.split(' ')[1]}
