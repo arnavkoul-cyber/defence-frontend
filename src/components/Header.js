@@ -33,11 +33,7 @@ function Header({ variant = 'blue', bgColor, isSidebarOpen, onToggleSidebar, emb
   }, [menuOpen]);
 
   const handleLogout = () => {
-  localStorage.removeItem('mobile_number');
-  localStorage.removeItem('army_unit_id');
-  localStorage.removeItem('auth_token');
-  localStorage.removeItem('officer_id');
-  localStorage.removeItem('userId');
+ localStorage.clear();
     setMenuOpen(false);
     navigate('/login');
   };

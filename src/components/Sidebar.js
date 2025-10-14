@@ -14,6 +14,7 @@ function Sidebar({ bgColor, isOpen = true, onToggle }) {
   } else {
     dashboardTitle = "Army Dashboard";
   }
+  const isAdmin = localStorage.getItem('role') === 'admin';
   
   const linkClasses = (path) => {
     const isActive = location.pathname === path;
@@ -27,12 +28,8 @@ function Sidebar({ bgColor, isOpen = true, onToggle }) {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    // Only remove authentication-related keys, not attendance_marked
-    localStorage.removeItem('mobile_number');
-    localStorage.removeItem('army_unit_id');
-    localStorage.removeItem('auth_token');
-    // Add/remove other keys as needed, but keep attendance_marked
-  
+    // Clear all localStorage items
+    localStorage.clear();
     toast.success('Logged out successfully!', { position: 'top-center', autoClose: 1500 });
     setTimeout(() => navigate('/login'), 1200);
   };
@@ -40,7 +37,7 @@ function Sidebar({ bgColor, isOpen = true, onToggle }) {
   return (
     <div
       className={`w-60 ${bgColor ? '' : 'bg-gray-900'} text-white p-4 shadow-lg fixed top-20 left-0 bottom-0 overflow-y-auto transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
-  style={bgColor ? { backgroundColor: bgColor } : undefined}
+      style={bgColor ? { backgroundColor: bgColor } : undefined}
     >
       <ToastContainer />
       {/* Hamburger toggle */}
@@ -68,40 +65,40 @@ function Sidebar({ bgColor, isOpen = true, onToggle }) {
         </span>
       </div>
       <nav className="space-y-2">
-        <Link to="/analytics" className={linkClasses('/analytics')}>
-          <FiBarChart2 />
-          <span>Analytics</span>
-        </Link>
-        <Link to="/dashboard" className={linkClasses('/dashboard')}>
-          <FiUsers />
-          <span>{isArmyDashboard ? 'Labourers Details' : 'Assign Labourers'}</span>
-        </Link>
-        {isArmyDashboard ? (
-          <Link to="/attendance" className={linkClasses('/attendance')}>
-            <FiCheckSquare />
-            <span>Mark Attendance</span>
+        {isAdmin ? (
+          <Link to="/admin/users" className={linkClasses('/admin/users')}>
+            <FiUsers />
+            <span>Users List</span>
           </Link>
         ) : (
-          <Link to="/unitData" className={linkClasses('/unitData')}>
-            <FiDatabase />
-            <span>Army Unit Data</span>
-          </Link>
+          <>
+            <Link to="/analytics" className={linkClasses('/analytics')}>
+              <FiBarChart2 />
+              <span>Analytics</span>
+            </Link>
+            <Link to="/dashboard" className={linkClasses('/dashboard')}>
+              <FiUsers />
+              <span>{isArmyDashboard ? 'Labourers Details' : 'Assign Labourers'}</span>
+            </Link>
+            {isArmyDashboard ? (
+              <Link to="/attendance" className={linkClasses('/attendance')}>
+                <FiCheckSquare />
+                <span>Mark Attendance</span>
+              </Link>
+            ) : (
+              <Link to="/unitData" className={linkClasses('/unitData')}>
+                <FiDatabase />
+                <span>Army Unit Data</span>
+              </Link>
+            )}
+            {isArmyDashboard && (
+              <Link to="/attendanceDetails" className={linkClasses('/attendanceDetails')}>
+                <FiFileText />
+                <span>Attendance Details</span>
+              </Link>
+            )}
+          </>
         )}
-     
-        {isArmyDashboard && (
-          <Link to="/attendanceDetails" className={linkClasses('/attendanceDetails')}>
-            <FiFileText />
-            <span>Attendance Details</span>
-          </Link>
-        )}
-        {/* <button
-          onClick={handleLogout}
-          className={linkClasses('/login') + ' w-full text-left flex items-center'}
-          style={{ background: 'none', border: 'none', outline: 'none', cursor: 'pointer' }}
-        >
-          <FiLogOut />
-          <span>Logout</span>
-        </button> */}
       </nav>
     </div>
   );

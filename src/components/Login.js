@@ -33,12 +33,23 @@ function Login() {
     try {
       setLoading(true);
       const res = await api.post('/auth/login', { mobile_number: mobile });
-      localStorage.setItem('officer_id', res.data.officer_id);
-      localStorage.setItem('userId', res.data.user.id);
-      localStorage.setItem('army_unit_id', res.data.user.army_unit_id);
-      localStorage.setItem('mobile_number', res.data.user.mobile_number);
-      toast.success('Login successful!', { position: 'top-center', autoClose: 1500 });
-      setTimeout(() => navigate('/dashboard'), 1200);
+      // Check for userType selection and API user role
+      if ((userType === 'Admin' || res.data.user.role === 'admin')) {
+        localStorage.setItem('role', 'admin');
+        // Store token as 'auth_token' for consistency with rest of app
+        localStorage.setItem('auth_token', res.data.token);
+        toast.success('Login successful!', { position: 'top-center', autoClose: 1500 });
+      setTimeout(() => {
+  window.location.href = '/admin/users';
+}, 1200);
+      } else {
+        localStorage.setItem('officer_id', res.data.officer_id);
+        localStorage.setItem('userId', res.data.user.id);
+        localStorage.setItem('army_unit_id', res.data.user.army_unit_id);
+        localStorage.setItem('mobile_number', res.data.user.mobile_number);
+        toast.success('Login successful!', { position: 'top-center', autoClose: 1500 });
+        setTimeout(() => navigate('/dashboard'), 1200);
+      }
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Login failed! Please try again.', { position: 'top-center', autoClose: 2000 });
     } finally {
@@ -92,7 +103,7 @@ function Login() {
                   </button>
                   {isUserTypeOpen && (
                     <ul className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-auto">
-                      {['Director of Defence Labour', 'Army Officer'].map((opt) => (
+                      {['Director of Defence Labour', 'Army Officer', 'Admin'].map((opt) => (
                         <li key={opt} onMouseDown={() => { setUserType(opt); setIsUserTypeOpen(false); }} className="px-3 py-2 text-gray-800 hover:bg-blue-50 cursor-pointer" role="option" aria-selected={userType === opt}>
                           {opt}
                         </li>
