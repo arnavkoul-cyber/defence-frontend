@@ -3,6 +3,20 @@ import { User, LogOut, Menu } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 function Header({ variant = 'blue', bgColor, isSidebarOpen, onToggleSidebar, emblemColor }) {
+  // Clear localStorage on tab close for proper logout
+  React.useEffect(() => {
+    const handleUnload = () => {
+      // Only clear if user is logged in
+      if (
+        localStorage.getItem('auth_token') ||
+        localStorage.getItem('userId') ||
+        localStorage.getItem('mobile_number')
+      ) {
+        localStorage.clear();
+      }
+    };
+  
+  }, []);
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);

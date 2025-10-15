@@ -26,8 +26,10 @@ const UsersList = () => {
     }
   };
   const [showModal, setShowModal] = useState(false);
-  const [newUser, setNewUser] = useState({ mobile_number: '', role: '', sector_id: '', });
+  const [newUser, setNewUser] = useState({ mobile_number: '', role: '', sector_id: '', army_unit_id: '' });
+  const [selectedSectorName, setSelectedSectorName] = useState('');
   const [sectors, setSectors] = useState([]);
+  const [armyUnits, setArmyUnits] = useState([]);
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState('');
   const [addSuccess, setAddSuccess] = useState('');
@@ -56,9 +58,44 @@ const UsersList = () => {
   const handleCloseModal = () => {
     setShowModal(false);
   };
-  const handleInputChange = (e) => {
+  const handleInputChange = async (e) => {
     const { name, value } = e.target;
     setNewUser((prev) => ({ ...prev, [name]: value }));
+    // If role is changed to 'army officer', fetch army units
+    if (name === 'role' && value.toLowerCase() === 'army officer') {
+      try {
+        const token = localStorage.getItem('auth_token');
+        const res = await api.get('/army-units', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setArmyUnits(res.data.army_units || []);
+      } catch (err) {
+        setArmyUnits([]);
+      }
+    }
+    // If role is changed to something else, clear army_unit_id
+    if (name === 'role' && value.toLowerCase() !== 'army officer') {
+      setNewUser((prev) => ({ ...prev, army_unit_id: '' }));
+      setArmyUnits([]);
+      setSelectedSectorName('');
+    }
+    // If army_unit_id is changed, update sector_id and sector name
+    if (name === 'army_unit_id') {
+      const selectedUnit = armyUnits.find(unit => String(unit.id) === String(value));
+      if (selectedUnit) {
+        setNewUser((prev) => ({ ...prev, sector_id: selectedUnit.sector_id }));
+        // Find sector name from sectors list
+        const sectorObj = sectors.find(sector => String(sector.id) === String(selectedUnit.sector_id));
+        setSelectedSectorName(sectorObj ? sectorObj.name : '');
+      } else {
+        setSelectedSectorName('');
+      }
+    }
+    // If sector_id is changed (for non-army officer), update sector name
+    if (name === 'sector_id' && (!newUser.role || newUser.role.toLowerCase() !== 'army officer')) {
+      const sectorObj = sectors.find(sector => String(sector.id) === String(value));
+      setSelectedSectorName(sectorObj ? sectorObj.name : '');
+    }
   };
   const handleAddUser = async () => {
     setAddLoading(true);
@@ -66,23 +103,30 @@ const UsersList = () => {
     setAddSuccess('');
     try {
       const token = localStorage.getItem('auth_token');
-      // Map role to role_id (example: 1 for army officer, 2 for defence officer)
-      let role_id = null;
-      if (newUser.role && newUser.role.toLowerCase() === 'army officer') role_id = 1;
-      else if (newUser.role && newUser.role.toLowerCase() === 'defence officer') role_id = 2;
-      if (!newUser.mobile_number || !newUser.role || !newUser.sector_id) {
+  // Do not send role_id, keep it null for both roles
+  let role_id = null;
+      if (!newUser.mobile_number || !newUser.role || !newUser.sector_id ||
+        (newUser.role && newUser.role.toLowerCase() === 'army officer' && !newUser.army_unit_id)) {
         setAddError('All fields are required.');
         setAddLoading(false);
         return;
       }
+      let sector_id = null;
+      if (newUser.role && newUser.role.toLowerCase() === 'army officer') {
+        // Find the selected army unit and get its sector_id
+        const selectedUnit = armyUnits.find(unit => String(unit.id) === String(newUser.army_unit_id));
+        sector_id = selectedUnit ? selectedUnit.sector_id : null;
+      } else {
+        sector_id = Number(newUser.sector_id);
+      }
       const payload = {
         mobile_number: newUser.mobile_number,
-        role_id,
+        role_id: null,
         is_verified: 0,
         created_at: new Date().toISOString().slice(0, 19).replace('T', ' '),
         role: newUser.role,
-        sector_id: Number(newUser.sector_id),
-        army_unit_id: newUser.role && newUser.role.toLowerCase() === 'army officer' ? 1 : null,
+        sector_id,
+        army_unit_id: newUser.role && newUser.role.toLowerCase() === 'army officer' ? Number(newUser.army_unit_id) : null,
       };
       await api.post('/users', payload, {
         headers: {
@@ -99,7 +143,12 @@ const UsersList = () => {
       const res = await api.get('/users', { headers: { Authorization: `Bearer ${token}` } });
       setUsers(res.data.users || []);
     } catch (err) {
-      setAddError('Failed to add user.');
+      let errorMsg = 'Failed to add user.';
+      if (err.response && err.response.data && err.response.data.error) {
+        errorMsg = err.response.data.error;
+      }
+      setAddError(errorMsg);
+      toast.error(errorMsg);
       setAddLoading(false);
     }
   };
@@ -188,20 +237,53 @@ const UsersList = () => {
                       <option value="defence officer">Defence Officer</option>
                     </select>
                   </div>
-                  <div className="mb-6">
-                    <label className="block text-blue-800 font-semibold mb-1">Sector</label>
-                    <select
-                      name="sector_id"
-                      value={newUser.sector_id}
-                      onChange={handleInputChange}
-                      className="w-full border border-blue-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    >
-                      <option value="">Select sector</option>
-                      {sectors.map((sector) => (
-                        <option key={sector.id} value={sector.id}>{sector.name || `Sector ${sector.id}`}</option>
-                      ))}
-                    </select>
-                  </div>
+                  {/* Show sector only if Defence Officer is selected */}
+                  {newUser.role && newUser.role.toLowerCase() === 'defence officer' && (
+                    <div className="mb-4">
+                      <label className="block text-blue-800 font-semibold mb-1">Sector</label>
+                      <select
+                        name="sector_id"
+                        value={newUser.sector_id}
+                        onChange={handleInputChange}
+                        className="w-full border border-blue-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      >
+                        <option value="">Select sector</option>
+                        {sectors.map((sector) => (
+                          <option key={sector.id} value={sector.id}>{sector.name || `Sector ${sector.id}`}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {/* Show army unit and sector name only if Army Officer is selected */}
+                  {newUser.role && newUser.role.toLowerCase() === 'army officer' && (
+                    <>
+                      <div className="mb-4">
+                        <label className="block text-blue-800 font-semibold mb-1">Army Unit</label>
+                        <select
+                          name="army_unit_id"
+                          value={newUser.army_unit_id}
+                          onChange={handleInputChange}
+                          className="w-full border border-blue-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        >
+                          <option value="">Select Army Unit</option>
+                          {armyUnits.map((unit) => (
+                            <option key={unit.id} value={unit.id}>{unit.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      {newUser.army_unit_id && (
+                        <div className="mb-6">
+                          <label className="block text-blue-800 font-semibold mb-1">Sector (Auto-filled)</label>
+                          <input
+                            type="text"
+                            value={selectedSectorName}
+                            readOnly
+                            className="w-full border border-blue-300 rounded px-3 py-2 bg-gray-100 text-gray-700 cursor-not-allowed"
+                          />
+                        </div>
+                      )}
+                    </>
+                  )}
                   <button
                     className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded shadow"
                     onClick={handleAddUser}
@@ -258,13 +340,15 @@ const UsersList = () => {
                           {/* <button className="inline-flex items-center justify-center p-2 rounded hover:bg-blue-100 mr-2" title="Edit">
                             <FiEdit className="text-blue-700 w-5 h-5" />
                           </button> */}
-                          <button
-                            className="inline-flex items-center justify-center p-2 rounded hover:bg-red-100"
-                            title="Delete"
-                            onClick={() => handleDeleteUser(user.mobile_number)}
-                          >
-                            <FiTrash2 className="text-red-600 w-5 h-5" />
-                          </button>
+                          {user.role && user.role.toUpperCase() !== 'ADMIN' && (
+                            <button
+                              className="inline-flex items-center justify-center p-2 rounded hover:bg-red-100"
+                              title="Delete"
+                              onClick={() => handleDeleteUser(user.mobile_number)}
+                            >
+                              <FiTrash2 className="text-red-600 w-5 h-5" />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))

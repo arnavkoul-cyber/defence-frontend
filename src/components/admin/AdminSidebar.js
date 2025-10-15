@@ -1,6 +1,8 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { FiUsers, FiMenu } from 'react-icons/fi';
+import { FaMapMarkedAlt } from 'react-icons/fa';
+import { GiRank3 } from 'react-icons/gi';
 
 function AdminSidebar({ bgColor, isOpen = true, onToggle }) {
   const location = useLocation();
@@ -42,9 +44,14 @@ function AdminSidebar({ bgColor, isOpen = true, onToggle }) {
       </nav>
       <nav className="space-y-2">
         <Link to="/admin/sectors" className={linkClasses('/admin/sectors')}>
-          <FiUsers />
-
+          <FaMapMarkedAlt />
           <span>Sectors List</span>
+        </Link>
+      </nav>
+      <nav className="space-y-2">
+        <Link to="/admin/army-units" className={linkClasses('/admin/army-units')}>
+          <GiRank3 />
+          <span>Army Units List</span>
         </Link>
       </nav>
     </div>

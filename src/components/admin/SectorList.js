@@ -1,3 +1,6 @@
+import { FiTrash2 } from 'react-icons/fi';
+  // Delete handler
+ 
 import React, { useState, useEffect } from 'react';
 import api from '../../api/api';
 import Header from '../Header';
@@ -16,8 +19,21 @@ const SectorList = () => {
   const [addError, setAddError] = useState('');
   const [addSuccess, setAddSuccess] = useState('');
   const [page, setPage] = useState(1);
+   const handleDeleteSector = async (sectorName) => {
+    if (!window.confirm(`Are you sure you want to delete sector "${sectorName}"?`)) return;
+    try {
+      const token = localStorage.getItem('auth_token');
+      await api.delete(`/sectors/name/${encodeURIComponent(sectorName)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      await fetchSectors();
+    } catch (err) {
+      alert('Failed to delete sector.');
+    }
+  };
 
-  const fetchSectors = async () => {
+  // Make sure fetchSectors is defined at the top level so it's in scope for all functions
+  async function fetchSectors() {
     setLoading(true);
     setError(null);
     try {
@@ -31,7 +47,7 @@ const SectorList = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   useEffect(() => {
     fetchSectors();
@@ -132,32 +148,70 @@ const SectorList = () => {
                   <tr>
                     <th className="px-4 py-3 text-left text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800">S.No</th>
                     <th className="px-6 py-3 text-left text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800">Sector Name</th>
+                    <th className="px-6 py-3 text-center text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800">Action</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {loading ? (
                     <tr>
-                      <td colSpan={2} className="text-center py-8 text-gray-500 font-semibold">Loading...</td>
+                      <td colSpan={3} className="text-center py-8 text-gray-500 font-semibold">Loading...</td>
                     </tr>
                   ) : error ? (
                     <tr>
-                      <td colSpan={2} className="text-center py-8 text-red-500 font-semibold">{error}</td>
+                      <td colSpan={3} className="text-center py-8 text-red-500 font-semibold">{error}</td>
                     </tr>
                   ) : paginatedSectors.length === 0 ? (
                     <tr>
-                      <td colSpan={2} className="text-center py-8 text-gray-500 font-semibold">No sectors to display yet.</td>
+                      <td colSpan={3} className="text-center py-8 text-gray-500 font-semibold">No sectors to display yet.</td>
                     </tr>
                   ) : (
                     paginatedSectors.map((sector, idx) => (
                       <tr key={sector.id} className="transition-colors duration-150 hover:bg-blue-50">
                         <td className="px-4 py-4 whitespace-nowrap font-bold text-gray-900 border-b border-blue-100">{(page - 1) * SECTORS_PER_PAGE + idx + 1}</td>
                         <td className="px-6 py-4 whitespace-nowrap font-bold border-b border-blue-100">{sector.name}</td>
+                        <td className="px-6 py-4 whitespace-nowrap font-bold border-b border-blue-100 text-center">
+                          <button
+                            className="text-red-600 hover:text-red-800 p-2 rounded"
+                            title="Delete Sector"
+                            onClick={() => handleDeleteSector(sector.name)}
+                          >
+                            <FiTrash2 size={18} />
+                          </button>
+                        </td>
                       </tr>
                     ))
                   )}
                 </tbody>
               </table>
             </div>
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center mt-4 space-x-2">
+                <button
+                  className="px-3 py-1 rounded bg-blue-100 text-blue-800 font-bold disabled:opacity-50"
+                  onClick={() => setPage(page - 1)}
+                  disabled={page === 1}
+                >
+                  Prev
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => (
+                  <button
+                    key={i}
+                    className={`px-3 py-1 rounded font-bold ${page === i + 1 ? 'bg-blue-700 text-white' : 'bg-blue-100 text-blue-800'}`}
+                    onClick={() => setPage(i + 1)}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+                <button
+                  className="px-3 py-1 rounded bg-blue-100 text-blue-800 font-bold disabled:opacity-50"
+                  onClick={() => setPage(page + 1)}
+                  disabled={page === totalPages}
+                >
+                  Next
+                </button>
+              </div>
+            )}
             {/* Pagination Controls */}
             {totalPages > 1 && (
               <div className="flex justify-center items-center mt-6 gap-2">

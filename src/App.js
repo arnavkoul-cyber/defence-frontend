@@ -11,6 +11,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import UsersList from './components/admin/UsersList';
 import SectorList from './components/admin/SectorList';
+import ArmyUnitsList from './components/admin/ArmyUnitsList';
 // Simple auth check: treat presence of any of these as logged in
 const isAuthenticated = () => {
   return !!(
@@ -49,6 +50,7 @@ function App() {
           <>
             <Route path="/admin/users" element={<ProtectedRoute><UsersList /></ProtectedRoute>} />
             <Route path="/admin/sectors" element={<ProtectedRoute><SectorList /></ProtectedRoute>} />
+            <Route path="/admin/army-units" element={<ProtectedRoute><ArmyUnitsList /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/admin/users" replace />} />
           </>
         ) : (

@@ -4,9 +4,22 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import Footer from './footer';
 import { FiUsers, FiChevronRight } from 'react-icons/fi';
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 
 function Dashboard() {
+  // For masking PAN and Aadhaar numbers per row
+  const [visibleRows, setVisibleRows] = useState({});
+
+  const toggleVisibility = (id, field) => {
+    setVisibleRows((prev) => ({
+      ...prev,
+      [id]: {
+        ...prev[id],
+        [field]: !prev[id]?.[field],
+      },
+    }));
+  };
   // Determine if this is the Army Dashboard
   const isArmyDashboard = (() => {
     const armyUnitId = localStorage.getItem('army_unit_id');
@@ -242,9 +255,17 @@ function Dashboard() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Labour Photo</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Created At</th>
+                
                 {!isArmyDashboard && <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Father Name</th>}
                 <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Contact</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Aadhaar Photo</th>
+                {!isArmyDashboard && <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Aadhaar Photo</th>}
+                {isArmyDashboard && (
+                  <>
+                    <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">PAN Number</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">PAN Path</th>
+                  </>
+                )}
                 {!isArmyDashboard && (
                   <>
                     <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Actions</th>
@@ -280,24 +301,48 @@ function Dashboard() {
                           />
                         )}
                       </td>
+                       <td className="px-6 py-4">{capitalize(labour.created_at)}</td>
                       {!isArmyDashboard && <td className="px-6 py-4">{capitalize(labour.father_name)}</td>}
                       <td className="px-6 py-4">{labour.contact_number}</td>
-                      <td className="px-6 py-4">
-                        {labour.adhar_path ? (
-                          <img
-                            src={`http://localhost:5000/${labour.adhar_path}`}
-                            alt="Aadhaar"
-                            className="w-12 h-12 object-cover rounded shadow border border-gray-200"
-                            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
-                          />
-                        ) : (
-                          <img
-                            src="https://img.icons8.com/fluency/48/no-image.png"
-                            alt="No Aadhaar"
-                            className="w-12 h-12 object-cover rounded shadow border border-gray-200"
-                          />
-                        )}
-                      </td>
+                      {!isArmyDashboard && (
+                        <td className="px-6 py-4">
+                          {labour.adhar_path ? (
+                            <img
+                              src={`http://localhost:5000/${labour.adhar_path}`}
+                              alt="Aadhaar"
+                              className="w-12 h-12 object-cover rounded shadow border border-gray-200"
+                              onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
+                            />
+                          ) : (
+                            <img
+                              src="https://img.icons8.com/fluency/48/no-image.png"
+                              alt="No Aadhaar"
+                              className="w-12 h-12 object-cover rounded shadow border border-gray-200"
+                            />
+                          )}
+                        </td>
+                      )}
+                      {isArmyDashboard && (
+                        <>
+                          <td className="px-6 py-4 flex items-center gap-2">
+                            {labour.pan_number ? (
+                              <>
+                                <span>
+                                  {visibleRows[labour.id]?.pan
+                                    ? labour.pan_number
+                                    : `${labour.pan_number.slice(0, 3)}***${labour.pan_number.length > 6 ? labour.pan_number.slice(-1) : ''}`}
+                                </span>
+                                <button type="button" onClick={() => toggleVisibility(labour.id, 'pan')} className="ml-2 text-blue-600 focus:outline-none">
+                                  {visibleRows[labour.id]?.pan ? <FaEyeSlash /> : <FaEye />}
+                                </button>
+                              </>
+                            ) : '—'}
+                          </td>
+                          <td className="px-6 py-4">{labour.pan_path ? (
+                            <a href={`http://localhost:5000/${labour.pan_path}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">View</a>
+                          ) : '—'}</td>
+                        </>
+                      )}
                       {!isArmyDashboard && (
                         <>
                           <td className="px-6 py-4 flex space-x-2">
@@ -350,25 +395,23 @@ function Dashboard() {
                     <p className="text-xs text-gray-500 mt-0.5">Father: {capitalize(labour.father_name) || '—'}</p>
                   )}
                   <p className="text-sm text-gray-600 mt-1">📞 {labour.contact_number}</p>
-                  <div className="mt-2 flex items-center gap-2">
-                    <img
-                      src={labour.adhar_path ? `http://localhost:5000/${labour.adhar_path}` : 'https://img.icons8.com/fluency/48/no-image.png'}
-                      alt="Aadhaar"
-                      className="w-10 h-10 object-cover rounded border"
-                      onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
-                    />
-                    {!isArmyDashboard && (
-                      <div className="ml-auto">
-                        <button
-                          onClick={() => handleView(labour)}
-                          disabled={!!labour.army_unit_id}
-                          className={`px-3 py-1 text-xs rounded-full shadow-sm text-white ${labour.army_unit_id ? 'bg-gray-300' : 'bg-blue-600 hover:bg-blue-700'}`}
-                        >
-                          View
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  {isArmyDashboard && (
+                    <div className="mt-2 flex flex-col gap-1">
+                      <span className="text-xs text-gray-700 flex items-center gap-1">
+                        PAN: {labour.pan_number ? (
+                          <>
+                            {visibleRows[labour.id]?.pan
+                              ? labour.pan_number
+                              : `${labour.pan_number.slice(0, 3)}***${labour.pan_number.length > 6 ? labour.pan_number.slice(-1) : ''}`}
+                            <button type="button" onClick={() => toggleVisibility(labour.id, 'pan')} className="ml-1 text-blue-600 focus:outline-none">
+                              {visibleRows[labour.id]?.pan ? <FaEyeSlash size={14}/> : <FaEye size={14}/>}
+                            </button>
+                          </>
+                        ) : '—'}
+                      </span>
+                      <span className="text-xs text-gray-700">PAN Path: {labour.pan_path ? (<a href={`http://localhost:5000/${labour.pan_path}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">View</a>) : '—'}</span>
+                    </div>
+                  )}
                   {!isArmyDashboard && (
                     <div className="mt-2">
                       {labour.army_unit_id ? (
@@ -377,6 +420,17 @@ function Dashboard() {
                     </div>
                   )}
                 </div>
+                {!isArmyDashboard && (
+                  <div className="flex items-center ml-auto">
+                    <button
+                      onClick={() => handleView(labour)}
+                      disabled={!!labour.army_unit_id}
+                      className={`px-3 py-1 text-xs rounded-full shadow-sm text-white ${labour.army_unit_id ? 'bg-gray-300' : 'bg-blue-600 hover:bg-blue-700'}`}
+                    >
+                      View
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
