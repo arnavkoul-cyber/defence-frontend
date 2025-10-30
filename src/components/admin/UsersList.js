@@ -10,6 +10,30 @@ import 'react-toastify/dist/ReactToastify.css';
 const USERS_PER_PAGE = 6;
 
 const UsersList = () => {
+  // Manual refresh handler
+  const handleRefresh = async () => {
+    await fetchUsers();
+    setPage(1);
+  };
+  // State declarations first
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const [showModal, setShowModal] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [newUser, setNewUser] = useState({ mobile_number: '', role: '', sector_id: '', army_unit_id: '' });
+  const [selectedSectorName, setSelectedSectorName] = useState('');
+  const [sectors, setSectors] = useState([]);
+  const [armyUnits, setArmyUnits] = useState([]);
+  const [addLoading, setAddLoading] = useState(false);
+  const [addError, setAddError] = useState('');
+  const [addSuccess, setAddSuccess] = useState('');
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
+  const [filteredUsers, setFilteredUsers] = useState([]);
+
+  // Delete handler
   const handleDeleteUser = async (mobile_number) => {
     if (!window.confirm('Are you sure you want to delete this user?')) return;
     try {
@@ -18,30 +42,29 @@ const UsersList = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       toast.success('User deleted successfully!');
-      // Refresh users list
-      const res = await api.get('/users', { headers: { Authorization: `Bearer ${token}` } });
-      setUsers(res.data.users || []);
+      // Refresh users list (cache-busted)
+      await fetchUsers();
+      setPage(1);
     } catch (err) {
       toast.error('Failed to delete user.');
     }
   };
-  const [showModal, setShowModal] = useState(false);
-  const [newUser, setNewUser] = useState({ mobile_number: '', role: '', sector_id: '', army_unit_id: '' });
-  const [selectedSectorName, setSelectedSectorName] = useState('');
-  const [sectors, setSectors] = useState([]);
-  const [armyUnits, setArmyUnits] = useState([]);
-  const [addLoading, setAddLoading] = useState(false);
-  const [addError, setAddError] = useState('');
-  const [addSuccess, setAddSuccess] = useState('');
 
   // Fetch sectors for dropdown
   useEffect(() => {
     if (showModal) {
       const fetchSectors = async () => {
         try {
-          const res = await api.get('/dynamic/sectors');
-          setSectors(res.data.data || []);
+          const token = localStorage.getItem('auth_token');
+          const res = await api.get('/sectors', {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          console.log('Sectors API response:', res.data); // Debug log
+          console.log('Total sectors count:', res.data.count || res.data.data?.length); // Debug log
+          console.log('Sectors data array length:', res.data.data?.length); // Debug log
+          setSectors(res.data.data || res.data.sectors || []);
         } catch (err) {
+          console.error('Failed to fetch sectors:', err);
           setSectors([]);
         }
       };
@@ -57,6 +80,11 @@ const UsersList = () => {
   };
   const handleCloseModal = () => {
     setShowModal(false);
+    setNewUser({ mobile_number: '', role: '', sector_id: '', army_unit_id: '' });
+    setSelectedSectorName('');
+    setArmyUnits([]);
+    setAddError('');
+    setAddSuccess('');
   };
   const handleInputChange = async (e) => {
     const { name, value } = e.target;
@@ -128,20 +156,46 @@ const UsersList = () => {
         sector_id,
         army_unit_id: newUser.role && newUser.role.toLowerCase() === 'army officer' ? Number(newUser.army_unit_id) : null,
       };
-      await api.post('/users', payload, {
+      const response = await api.post('/users', payload, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
+      
+      // Optimistic update: Add new user to the list immediately
+      const newUserData = {
+        id: response.data.user?.id || Date.now(), // Use response ID or timestamp as fallback
+        mobile_number: payload.mobile_number,
+        role: payload.role,
+        created_at: payload.created_at,
+        sector_id: payload.sector_id,
+        army_unit_id: payload.army_unit_id,
+      };
+      
+      // Add to the beginning of the list (newest first)
+      setUsers((prevUsers) => [newUserData, ...prevUsers]);
+      
+      // Show success message
       setAddSuccess('User added successfully!');
       toast.success('User added successfully!');
+      
+      // Close modal and reset form
       setAddLoading(false);
-      setShowModal(false);
-      setNewUser({ mobile_number: '', role: '', sector_id: '' });
-      // Optionally, refresh users list
-      const res = await api.get('/users', { headers: { Authorization: `Bearer ${token}` } });
-      setUsers(res.data.users || []);
+      setTimeout(() => {
+        setShowModal(false);
+        setNewUser({ mobile_number: '', role: '', sector_id: '', army_unit_id: '' });
+        setSelectedSectorName('');
+        setArmyUnits([]);
+      }, 500); // Small delay to show success message before closing
+      
+      // Refresh from server in background to ensure consistency
+      try {
+        const res = await api.get('/users', { headers: { Authorization: `Bearer ${token}` } });
+        setUsers(res.data.users || []);
+      } catch (refreshErr) {
+        console.error('Background refresh failed:', refreshErr);
+      }
     } catch (err) {
       let errorMsg = 'Failed to add user.';
       if (err.response && err.response.data && err.response.data.error) {
@@ -152,85 +206,145 @@ const UsersList = () => {
       setAddLoading(false);
     }
   };
-    console.log("UsersList component rendered");
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [page, setPage] = useState(1);
 
+  // Fetch users on component mount
+  async function fetchUsers() {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('auth_token');
+      // Add cache-busting param
+      const res = await api.get(`/users?t=${Date.now()}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setUsers(res.data.users || []);
+    } catch (err) {
+      setError('Failed to fetch users');
+    } finally {
+      setLoading(false);
+    }
+  }
   useEffect(() => {
-    const fetchUsers = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const token = localStorage.getItem('auth_token');
-        const res = await api.get('/users', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        setUsers(res.data.users || []);
-      } catch (err) {
-        setError('Failed to fetch users');
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchUsers();
   }, []);
 
-  const totalPages = Math.ceil(users.length / USERS_PER_PAGE);
-  const paginatedUsers = users.slice((page - 1) * USERS_PER_PAGE, page * USERS_PER_PAGE);
+  // Filter users by date range
+  useEffect(() => {
+    if (!filterStartDate && !filterEndDate) {
+      setFilteredUsers(users);
+      return;
+    }
+
+    const filtered = users.filter((user) => {
+      if (!user.created_at) return false;
+      
+      const createdDate = new Date(user.created_at);
+      const start = filterStartDate ? new Date(filterStartDate) : null;
+      const end = filterEndDate ? new Date(filterEndDate) : null;
+      
+      // Set time to start of day for comparison
+      if (start) start.setHours(0, 0, 0, 0);
+      if (end) end.setHours(23, 59, 59, 999);
+      createdDate.setHours(0, 0, 0, 0);
+      
+      if (start && end) {
+        return createdDate >= start && createdDate <= end;
+      } else if (start) {
+        return createdDate >= start;
+      } else if (end) {
+        return createdDate <= end;
+      }
+      return true;
+    });
+    
+    setFilteredUsers(filtered);
+    setPage(1); // Reset to first page when filter changes
+  }, [users, filterStartDate, filterEndDate]);
+
+  const totalPages = Math.ceil(filteredUsers.length / USERS_PER_PAGE);
+  const paginatedUsers = filteredUsers.slice((page - 1) * USERS_PER_PAGE, page * USERS_PER_PAGE);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-gray-50 relative">
+      {/* White emblem watermark background */}
+      <div 
+        className="fixed inset-0 bg-center bg-no-repeat opacity-[0.12] pointer-events-none z-[1]"
+        style={{
+          backgroundImage: `url(${require('../../assets/white_emb.jpeg')})`,
+          backgroundSize: '45%',
+        }}
+        aria-hidden="true"
+      ></div>
+      
+      <div className="relative z-10">
       <ToastContainer position="top-right" autoClose={2000} hideProgressBar={false} newestOnTop closeOnClick pauseOnFocusLoss draggable pauseOnHover />
-      <Header variant="blue" bgColor="#0b50a2" />
+      <Header variant="blue" bgColor="#0b50a2" isSidebarOpen={isSidebarOpen} onToggleSidebar={() => setIsSidebarOpen(true)} />
+      {!isSidebarOpen && (
+        <button
+          type="button"
+          aria-label="Open sidebar"
+          onClick={() => setIsSidebarOpen(true)}
+          className="fixed left-0 top-24 z-50 p-2 rounded-md bg-white text-blue-600 ring-1 ring-blue-300 shadow hover:bg-blue-50"
+        >
+          <span className="font-bold">›</span>
+        </button>
+      )}
       <div className="flex flex-1">
-        <AdminSidebar bgColor="#0b50a2" />
-        <main className="flex-1 flex flex-col items-center justify-center p-4">
-          <div className="w-full max-w-4xl bg-white rounded-lg shadow p-6 mt-2 flex flex-col items-center">
-            <div className="w-full flex items-center justify-between mb-6">
-              <h2 className="text-3xl font-bold text-blue-800">Users List</h2>
-              <button
-                className="bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded shadow flex items-center text-base"
-                onClick={handleOpenModal}
-              >
-                <span className="text-xl mr-2">+</span> Add New User
-              </button>
+        <AdminSidebar bgColor="#0b50a2" isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(v => !v)} />
+        <main className={`flex-1 flex flex-col items-center justify-center p-3 sm:p-4 transition-all duration-300 ${isSidebarOpen ? 'md:ml-60' : 'ml-0'} overflow-x-hidden`}>
+          <div className="w-full max-w-4xl bg-white rounded-lg shadow p-4 sm:p-6 mt-2 flex flex-col items-center">
+            <div className="w-full flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-3">
+              <h2 className="text-2xl sm:text-3xl font-bold text-blue-800">Users List</h2>
+              <div className="flex gap-2">
+                <button
+                  className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded shadow flex items-center text-base"
+                  onClick={handleRefresh}
+                  title="Refresh Users List"
+                >
+                  &#x21bb; Refresh
+                </button>
+                <button
+                  className="bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 px-3 sm:px-4 rounded shadow flex items-center text-sm sm:text-base w-full sm:w-auto justify-center"
+                  onClick={handleOpenModal}
+                >
+                  <span className="text-xl mr-2">+</span> Add New User
+                </button>
+              </div>
             </div>
             {/* Modal for Add New User */}
             {showModal && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-                <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md relative">
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4 overflow-y-auto">
+                <div className="bg-white rounded-lg shadow-lg p-6 sm:p-8 w-full max-w-md relative my-8 max-h-[90vh] overflow-y-auto">
                   <button
-                    className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl font-bold"
+                    className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl font-bold z-10"
                     onClick={handleCloseModal}
                   >
                     &times;
                   </button>
-                  <h3 className="text-2xl font-bold mb-4 text-blue-800">Add New User</h3>
-                  {addError && <div className="mb-2 text-red-600 font-semibold">{addError}</div>}
-                  {addSuccess && <div className="mb-2 text-green-600 font-semibold">{addSuccess}</div>}
+                  <h3 className="text-xl sm:text-2xl font-bold mb-4 text-blue-800 pr-8">Add New User</h3>
+                  {addError && <div className="mb-2 text-red-600 font-semibold text-sm">{addError}</div>}
+                  {addSuccess && <div className="mb-2 text-green-600 font-semibold text-sm">{addSuccess}</div>}
                   <div className="mb-4">
-                    <label className="block text-blue-800 font-semibold mb-1">Mobile Number</label>
+                    <label className="block text-blue-800 font-semibold mb-1 text-sm">Mobile Number</label>
                     <input
                       type="text"
                       name="mobile_number"
                       value={newUser.mobile_number}
                       onChange={handleInputChange}
-                      className="w-full border border-blue-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      className="w-full border border-blue-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                       placeholder="Enter mobile number"
                       maxLength={10}
                     />
                   </div>
                   <div className="mb-4">
-                    <label className="block text-blue-800 font-semibold mb-1">Role</label>
+                    <label className="block text-blue-800 font-semibold mb-1 text-sm">Role</label>
                     <select
                       name="role"
                       value={newUser.role}
                       onChange={handleInputChange}
-                      className="w-full border border-blue-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      className="w-full border border-blue-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                     >
                       <option value="">Select role</option>
                       <option value="army officer">Army Officer</option>
@@ -240,16 +354,20 @@ const UsersList = () => {
                   {/* Show sector only if Defence Officer is selected */}
                   {newUser.role && newUser.role.toLowerCase() === 'defence officer' && (
                     <div className="mb-4">
-                      <label className="block text-blue-800 font-semibold mb-1">Sector</label>
+                      <label className="block text-blue-800 font-semibold mb-1 text-sm">Sector</label>
                       <select
                         name="sector_id"
                         value={newUser.sector_id}
                         onChange={handleInputChange}
-                        className="w-full border border-blue-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        className="w-full border border-blue-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        size="8"
+                        style={{ height: '200px', overflowY: 'scroll' }}
                       >
-                        <option value="">Select sector</option>
+                        <option value="" className="py-2 hover:bg-blue-50">Select sector</option>
                         {sectors.map((sector) => (
-                          <option key={sector.id} value={sector.id}>{sector.name || `Sector ${sector.id}`}</option>
+                          <option key={sector.id} value={sector.id} className="py-2 px-2 hover:bg-blue-50 cursor-pointer">
+                            {sector.name || `Sector ${sector.id}`}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -258,34 +376,38 @@ const UsersList = () => {
                   {newUser.role && newUser.role.toLowerCase() === 'army officer' && (
                     <>
                       <div className="mb-4">
-                        <label className="block text-blue-800 font-semibold mb-1">Army Unit</label>
+                        <label className="block text-blue-800 font-semibold mb-1 text-sm">Army Unit</label>
                         <select
                           name="army_unit_id"
                           value={newUser.army_unit_id}
                           onChange={handleInputChange}
-                          className="w-full border border-blue-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                          className="w-full border border-blue-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                          size="8"
+                          style={{ height: '200px', overflowY: 'scroll' }}
                         >
-                          <option value="">Select Army Unit</option>
+                          <option value="" className="py-2 hover:bg-blue-50">Select Army Unit</option>
                           {armyUnits.map((unit) => (
-                            <option key={unit.id} value={unit.id}>{unit.name}</option>
+                            <option key={unit.id} value={unit.id} className="py-2 px-2 hover:bg-blue-50 cursor-pointer">
+                              {unit.name}
+                            </option>
                           ))}
                         </select>
                       </div>
                       {newUser.army_unit_id && (
                         <div className="mb-6">
-                          <label className="block text-blue-800 font-semibold mb-1">Sector (Auto-filled)</label>
+                          <label className="block text-blue-800 font-semibold mb-1 text-sm">Sector (Auto-filled)</label>
                           <input
                             type="text"
                             value={selectedSectorName}
                             readOnly
-                            className="w-full border border-blue-300 rounded px-3 py-2 bg-gray-100 text-gray-700 cursor-not-allowed"
+                            className="w-full border border-blue-300 rounded px-3 py-2 text-sm bg-gray-100 text-gray-700 cursor-not-allowed"
                           />
                         </div>
                       )}
                     </>
                   )}
                   <button
-                    className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded shadow"
+                    className="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded shadow text-sm sm:text-base"
                     onClick={handleAddUser}
                     disabled={addLoading}
                   >
@@ -294,15 +416,54 @@ const UsersList = () => {
                 </div>
               </div>
             )}
+
+            {/* Date Filter */}
+            <div className="bg-white rounded-xl shadow-md p-4 mb-6 border border-gray-200">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-semibold text-gray-700">From:</label>
+                  <input
+                    type="date"
+                    value={filterStartDate}
+                    onChange={(e) => setFilterStartDate(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-semibold text-gray-700">To:</label>
+                  <input
+                    type="date"
+                    value={filterEndDate}
+                    onChange={(e) => setFilterEndDate(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                {(filterStartDate || filterEndDate) && (
+                  <button
+                    onClick={() => {
+                      setFilterStartDate('');
+                      setFilterEndDate('');
+                    }}
+                    className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm font-semibold rounded-lg transition"
+                  >
+                    Clear Filter
+                  </button>
+                )}
+                <div className="ml-auto text-sm text-gray-600">
+                  Showing <span className="font-bold text-blue-600">{filteredUsers.length}</span> of <span className="font-bold">{users.length}</span> users
+                </div>
+              </div>
+            </div>
+
             <div className="overflow-x-auto w-full flex justify-center">
-              <table className="min-w-[800px] w-full border border-blue-800 rounded-lg shadow-lg divide-y divide-gray-200">
+              <table className="min-w-full sm:min-w-[800px] w-full border border-blue-800 rounded-lg shadow-lg divide-y divide-gray-200">
                 <thead className="bg-blue-100">
                   <tr>
-                    <th className="px-4 py-3 text-left text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800">S.No</th>
-                    <th className="px-6 py-3 text-left text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800">Mobile No</th>
-                    <th className="px-6 py-3 text-left text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800">Created At</th>
-                    <th className="px-6 py-3 text-left text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800">Role</th>
-                    <th className="px-6 py-3 text-center text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800">Action</th>
+                    <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800">S.No</th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs sm:text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800">Mobile No</th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs sm:text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800">Created At</th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs sm:text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800">Role</th>
+                    <th className="px-3 sm:px-6 py-3 text-center text-xs sm:text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800">Action</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -317,6 +478,10 @@ const UsersList = () => {
                   ) : users.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="text-center py-8 text-gray-500 font-semibold">No users to display yet.</td>
+                    </tr>
+                  ) : filteredUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="text-center py-8 text-gray-500 font-semibold">No users found for the selected date range.</td>
                     </tr>
                   ) : (
                     paginatedUsers.map((user, idx) => (
@@ -386,6 +551,7 @@ const UsersList = () => {
             )}
           </div>
         </main>
+      </div>
       </div>
       <Footer />
     </div>

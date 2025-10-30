@@ -6,10 +6,35 @@ import api from '../../api/api';
 import Header from '../Header';
 import Footer from '../footer';
 import AdminSidebar from './AdminSidebar';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const SECTORS_PER_PAGE = 10;
 
 const SectorList = () => {
+  // Responsive: show sidebar open arrow when closed on mobile
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  // Sidebar responsive state
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 768);
+  const handleSidebarToggle = () => setSidebarOpen((prev) => !prev);
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) setSidebarOpen(false);
+      else setSidebarOpen(true);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  // Manual refresh handler
+  const handleRefresh = async () => {
+    await fetchSectors();
+    setPage(1);
+  };
   const [sectors, setSectors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -26,9 +51,13 @@ const SectorList = () => {
       await api.delete(`/sectors/name/${encodeURIComponent(sectorName)}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      toast.success('Sector deleted successfully!');
       await fetchSectors();
+      setPage(1); // Reset to first page after deletion
     } catch (err) {
-      alert('Failed to delete sector.');
+      // Show API error message if available
+      const apiError = err?.response?.data?.error;
+      toast.error(apiError || 'Failed to delete sector.');
     }
   };
 
@@ -38,7 +67,8 @@ const SectorList = () => {
     setError(null);
     try {
       const token = localStorage.getItem('auth_token');
-      const res = await api.get('/sectors', {
+      // Add cache-busting param
+      const res = await api.get(`/sectors?t=${Date.now()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setSectors(res.data.data || res.data.sectors || []);
@@ -78,13 +108,13 @@ const SectorList = () => {
           'Content-Type': 'application/json',
         },
       });
-      setAddSuccess('Sector added successfully!');
+      toast.success('Sector added successfully!');
       setAddLoading(false);
       setShowModal(false);
       setNewSectorName('');
       await fetchSectors();
     } catch (err) {
-      setAddError('Failed to add sector.');
+      toast.error('Failed to add sector.');
       setAddLoading(false);
     }
   };
@@ -94,20 +124,78 @@ const SectorList = () => {
   const paginatedSectors = sectors.slice((page - 1) * SECTORS_PER_PAGE, page * SECTORS_PER_PAGE);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      <Header variant="blue" bgColor="#0b50a2" />
-      <div className="flex flex-1">
-        <AdminSidebar bgColor="#0b50a2" />
-        <main className="flex-1 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen flex flex-col bg-gray-50 relative">
+      {/* White emblem watermark background */}
+      <div 
+        className="fixed inset-0 bg-center bg-no-repeat opacity-[0.12] pointer-events-none z-[1]"
+        style={{
+          backgroundImage: `url(${require('../../assets/white_emb.jpeg')})`,
+          backgroundSize: '45%',
+        }}
+        aria-hidden="true"
+      ></div>
+      
+      <div className="relative z-10">
+      <ToastContainer position="top-right" autoClose={2000} />
+      <Header variant="blue" bgColor="#0b50a2">
+        {/* Hamburger for mobile */}
+        <button
+          type="button"
+          aria-label="Open sidebar"
+          className="md:hidden absolute left-2 top-2 z-50 p-2 rounded-md bg-blue-700 text-white shadow"
+          onClick={handleSidebarToggle}
+        >
+          <span style={{fontSize: '1.5rem'}}>&#9776;</span>
+        </button>
+      </Header>
+      <div className="flex flex-1 relative">
+        {/* Sidebar overlays on mobile, pushes on desktop */}
+        <AdminSidebar bgColor="#0b50a2" isOpen={sidebarOpen} onToggle={handleSidebarToggle} />
+        {/* Overlay for mobile sidebar */}
+        {sidebarOpen && windowWidth < 768 && (
+          <div
+            className="fixed inset-0 bg-black/40 z-40"
+            onClick={handleSidebarToggle}
+            style={{ cursor: 'pointer' }}
+          />
+        )}
+        {/* Show sidebar open arrow on mobile when sidebar is closed */}
+        {!sidebarOpen && windowWidth < 768 && (
+          <button
+            type="button"
+            aria-label="Open sidebar"
+            onClick={handleSidebarToggle}
+            className="fixed left-2 top-20 z-50 p-2 rounded-md bg-blue-700 text-white shadow"
+          >
+            <span style={{fontSize: '1.5rem'}}>&#8250;</span>
+          </button>
+        )}
+        <main
+          className="flex-1 flex flex-col items-center justify-center p-4"
+          style={{
+            marginLeft: sidebarOpen && windowWidth >= 768 ? 240 : 0,
+            transition: 'margin-left 0.3s',
+            zIndex: 10,
+          }}
+        >
           <div className="w-full max-w-4xl bg-white rounded-lg shadow p-6 mt-2 flex flex-col items-center">
             <div className="w-full flex items-center justify-between mb-6">
               <h2 className="text-3xl font-bold text-blue-800">Sectors List</h2>
-              <button
-                className="bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded shadow flex items-center text-base"
-                onClick={handleOpenModal}
-              >
-                <span className="text-xl mr-2">+</span> Add Sector
-              </button>
+              <div className="flex gap-2">
+                <button
+                  className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded shadow flex items-center text-base"
+                  onClick={handleRefresh}
+                  title="Refresh Sectors List"
+                >
+                  &#x21bb; Refresh
+                </button>
+                <button
+                  className="bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded shadow flex items-center text-base"
+                  onClick={handleOpenModal}
+                >
+                  <span className="text-xl mr-2">+</span> Add Sector
+                </button>
+              </div>
             </div>
             {/* Modal for Add New Sector */}
             {showModal && (
@@ -143,46 +231,48 @@ const SectorList = () => {
               </div>
             )}
             <div className="overflow-x-auto w-full flex justify-center">
-              <table className="min-w-[500px] w-full border border-blue-800 rounded-lg shadow-lg divide-y divide-gray-200">
-                <thead className="bg-blue-100">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800">S.No</th>
-                    <th className="px-6 py-3 text-left text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800">Sector Name</th>
-                    <th className="px-6 py-3 text-center text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {loading ? (
+              <div className="w-full" style={{ minWidth: 0 }}>
+                <table className="w-full border border-blue-800 rounded-lg shadow-lg divide-y divide-gray-200 text-sm md:text-base">
+                  <thead className="bg-blue-100">
                     <tr>
-                      <td colSpan={3} className="text-center py-8 text-gray-500 font-semibold">Loading...</td>
+                      <th className="px-2 py-2 md:px-4 md:py-3 text-left font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800">S.No</th>
+                      <th className="px-2 py-2 md:px-6 md:py-3 text-left font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800">Sector Name</th>
+                      <th className="px-2 py-2 md:px-6 md:py-3 text-center font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800">Action</th>
                     </tr>
-                  ) : error ? (
-                    <tr>
-                      <td colSpan={3} className="text-center py-8 text-red-500 font-semibold">{error}</td>
-                    </tr>
-                  ) : paginatedSectors.length === 0 ? (
-                    <tr>
-                      <td colSpan={3} className="text-center py-8 text-gray-500 font-semibold">No sectors to display yet.</td>
-                    </tr>
-                  ) : (
-                    paginatedSectors.map((sector, idx) => (
-                      <tr key={sector.id} className="transition-colors duration-150 hover:bg-blue-50">
-                        <td className="px-4 py-4 whitespace-nowrap font-bold text-gray-900 border-b border-blue-100">{(page - 1) * SECTORS_PER_PAGE + idx + 1}</td>
-                        <td className="px-6 py-4 whitespace-nowrap font-bold border-b border-blue-100">{sector.name}</td>
-                        <td className="px-6 py-4 whitespace-nowrap font-bold border-b border-blue-100 text-center">
-                          <button
-                            className="text-red-600 hover:text-red-800 p-2 rounded"
-                            title="Delete Sector"
-                            onClick={() => handleDeleteSector(sector.name)}
-                          >
-                            <FiTrash2 size={18} />
-                          </button>
-                        </td>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {loading ? (
+                      <tr>
+                        <td colSpan={3} className="text-center py-8 text-gray-500 font-semibold">Loading...</td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : error ? (
+                      <tr>
+                        <td colSpan={3} className="text-center py-8 text-red-500 font-semibold">{error}</td>
+                      </tr>
+                    ) : paginatedSectors.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className="text-center py-8 text-gray-500 font-semibold">No sectors to display yet.</td>
+                      </tr>
+                    ) : (
+                      paginatedSectors.map((sector, idx) => (
+                        <tr key={sector.id} className="transition-colors duration-150 hover:bg-blue-50">
+                          <td className="px-2 py-2 md:px-4 md:py-4 whitespace-nowrap font-bold text-gray-900 border-b border-blue-100">{(page - 1) * SECTORS_PER_PAGE + idx + 1}</td>
+                          <td className="px-2 py-2 md:px-6 md:py-4 whitespace-nowrap font-bold border-b border-blue-100">{sector.name}</td>
+                          <td className="px-2 py-2 md:px-6 md:py-4 whitespace-nowrap font-bold border-b border-blue-100 text-center">
+                            <button
+                              className="text-red-600 hover:text-red-800 p-2 rounded"
+                              title="Delete Sector"
+                              onClick={() => handleDeleteSector(sector.name)}
+                            >
+                              <FiTrash2 size={18} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
             {/* Pagination Controls */}
             {totalPages > 1 && (
@@ -212,36 +302,9 @@ const SectorList = () => {
                 </button>
               </div>
             )}
-            {/* Pagination Controls */}
-            {totalPages > 1 && (
-              <div className="flex justify-center items-center mt-6 gap-2">
-                <button
-                  className="px-3 py-1 rounded bg-blue-100 text-blue-800 font-bold disabled:opacity-50"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                >
-                  Prev
-                </button>
-                {Array.from({ length: totalPages }, (_, i) => (
-                  <button
-                    key={i}
-                    className={`px-3 py-1 rounded font-bold ${page === i + 1 ? 'bg-blue-700 text-white' : 'bg-blue-50 text-blue-800'}`}
-                    onClick={() => setPage(i + 1)}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
-                <button
-                  className="px-3 py-1 rounded bg-blue-100 text-blue-800 font-bold disabled:opacity-50"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                >
-                  Next
-                </button>
-              </div>
-            )}
           </div>
         </main>
+      </div>
       </div>
       <Footer />
     </div>

@@ -1,3 +1,24 @@
 import axios from 'axios';
-const api = axios.create({ baseURL: 'https://dlp.jk.gov.in/api' });
+// https://dlp.jk.gov.in/api/api
+// Base URL for API (change this for production)
+// For local development: 'http://localhost:5000'
+// For production: 'https://dlp.jk.gov.in/api'
+const BASE_URL = 'https://dlp.jk.gov.in/api';
+
+// API instance with /api path
+const api = axios.create({ baseURL: `${BASE_URL}/api` });
+
+// Helper function to get full image URL
+export const getImageUrl = (path) => {
+  if (!path) return null;
+  if (path.startsWith('http')) return path; // Already a full URL
+  
+  // Remove leading slash if present to avoid double slashes
+  const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+  const fullUrl = `${BASE_URL}/${cleanPath}`;
+  
+  console.log('Image URL:', fullUrl); // Debug log
+  return fullUrl;
+};
+
 export default api;

@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import api from '../api/api';
+import api, { getImageUrl } from '../api/api';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import Footer from './footer';
 import { FiUsers, FiChevronRight } from 'react-icons/fi';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import { toast } from 'react-toastify';
+import { getThemeColors, getTableHeaderClass, getButtonClass, getGradientTextClass } from '../utils/themeHelper';
 
 function Dashboard() {
   // For masking PAN and Aadhaar numbers per row
@@ -40,6 +41,11 @@ function Dashboard() {
   const [assignDate, setAssignDate] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  
+  // Date filter state
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
+  const [filteredLabours, setFilteredLabours] = useState([]);
 
   const fetchLabours = async () => {
     try {
@@ -142,20 +148,25 @@ function Dashboard() {
 
   const handleAssignArmyUnit = async () => {
     if (!armyUnitId || !selectedLabour) {
-      return alert('Please select an army unit');
+      toast.error('Please select an army unit', { position: 'top-center', autoClose: 1600 });
+      return;
     }
     try {
-      // Don't call API yet. First collect dates in next modal.
+      // Close current modal first
       setIsModalOpen(false);
+      
+      // Prepare date fields
       const today = new Date();
       const toInput = (d) => new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
       setAssignDate((prev) => prev || toInput(today));
       setStartDate((prev) => prev || toInput(today));
       setEndDate((prev) => prev || toInput(today));
+      
+      // Open date selection modal
       setIsDateModalOpen(true);
     } catch (err) {
       console.error(err);
-  toast.error('Failed to proceed', { position: 'top-center', autoClose: 1800 });
+      toast.error('Failed to proceed', { position: 'top-center', autoClose: 1800 });
     }
   };
 
@@ -177,12 +188,30 @@ function Dashboard() {
         start_date: startDate,
         end_date: endDate,
       });
+      
+      // Update local state immediately for better UX
+      setLabours((prevLabours) =>
+        prevLabours.map((labour) =>
+          labour.id === selectedLabour.id
+            ? { ...labour, army_unit_id: Number(armyUnitId) }
+            : labour
+        )
+      );
+      
       setIsDateModalOpen(false);
-  toast.success('Army unit assigned with dates', { position: 'top-center', autoClose: 1600 });
-      fetchLabours();
+      setSelectedLabour(null);
+      setArmyUnitId('');
+      setAssignDate('');
+      setStartDate('');
+      setEndDate('');
+      
+      toast.success('Army unit assigned successfully', { position: 'top-center', autoClose: 1600 });
+      
+      // Refresh data from server in background
+      await fetchLabours();
     } catch (err) {
       console.error('Failed saving assignment dates', err);
-  toast.error('Failed to save assignment dates', { position: 'top-center', autoClose: 1800 });
+      toast.error('Failed to save assignment dates', { position: 'top-center', autoClose: 1800 });
     }
   };
 
@@ -191,13 +220,63 @@ function Dashboard() {
   // Cards moved to Analytics page; keep base fetch only
   }, []);
 
+  // Filter labours by date range
+  useEffect(() => {
+    if (!filterStartDate && !filterEndDate) {
+      setFilteredLabours(labours);
+      return;
+    }
+
+    const filtered = labours.filter((labour) => {
+      if (!labour.created_at) return false;
+      
+      const createdDate = new Date(labour.created_at);
+      const start = filterStartDate ? new Date(filterStartDate) : null;
+      const end = filterEndDate ? new Date(filterEndDate) : null;
+      
+      // Set time to start of day for comparison
+      if (start) start.setHours(0, 0, 0, 0);
+      if (end) end.setHours(23, 59, 59, 999);
+      createdDate.setHours(0, 0, 0, 0);
+      
+      if (start && end) {
+        return createdDate >= start && createdDate <= end;
+      } else if (start) {
+        return createdDate >= start;
+      } else if (end) {
+        return createdDate <= end;
+      }
+      return true;
+    });
+    
+    setFilteredLabours(filtered);
+    setCurrentPage(1); // Reset to first page when filter changes
+  }, [labours, filterStartDate, filterEndDate]);
+
   // Pagination logic
-  const totalPages = Math.ceil(labours.length / entriesPerPage);
-  const paginatedLabours = labours.slice((currentPage - 1) * entriesPerPage, currentPage * entriesPerPage);
+  const totalPages = Math.ceil(filteredLabours.length / entriesPerPage);
+  const paginatedLabours = filteredLabours.slice((currentPage - 1) * entriesPerPage, currentPage * entriesPerPage);
+
+  // Get theme colors
+  const themeColors = getThemeColors();
+  const tableHeaderClass = getTableHeaderClass();
+  const buttonClass = getButtonClass();
+  const gradientTextClass = getGradientTextClass();
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100">
-  <Header bgColor="rgb(11,80,162)" emblemColor="blue" isSidebarOpen={isSidebarOpen} onToggleSidebar={() => setIsSidebarOpen(true)} />
+    <div className="min-h-screen flex flex-col bg-gray-100 relative">
+      {/* White emblem watermark background */}
+      <div 
+        className="fixed inset-0 bg-center bg-no-repeat opacity-[0.12] pointer-events-none z-[1]"
+        style={{
+          backgroundImage: `url(${require('../assets/white_emb.jpeg')})`,
+          backgroundSize: '45%',
+        }}
+        aria-hidden="true"
+      ></div>
+      
+      <div className="relative z-10">
+  <Header bgColor={themeColors.headerBg} emblemColor="blue" isSidebarOpen={isSidebarOpen} onToggleSidebar={() => setIsSidebarOpen(true)} />
       {!isSidebarOpen && (
         <button
           type="button"
@@ -210,32 +289,32 @@ function Dashboard() {
         </button>
       )}
       <div className="flex flex-1">
-  <Sidebar bgColor="rgb(11,80,162)" isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen((v) => !v)} />
-  <main className={`flex-1 px-6 pt-2 pb-24 transition-all duration-300 ${isSidebarOpen ? 'ml-60' : 'ml-0'} mt-1`}>
-          <div className="mb-5">
+  <Sidebar bgColor={themeColors.sidebarBg} isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(v => !v)} />
+  <main className={`flex-1 px-3 sm:px-4 md:px-6 pt-2 pb-24 transition-all duration-300 ${isSidebarOpen ? 'md:ml-60' : 'ml-0'} mt-1 overflow-x-hidden`}>
+          <div className="mb-4 sm:mb-5">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-end gap-3">
                 <span className="h-10 w-10 rounded-full bg-blue-100 ring-1 ring-blue-200 shadow-sm flex items-center justify-center">
                   <FiUsers className="text-blue-600 w-6 h-6" />
                 </span>
-                <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-sky-500 drop-shadow-sm">
+                <h2 className={`text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight text-transparent bg-clip-text bg-gradient-to-r ${gradientTextClass} drop-shadow-sm`}>
                   {isArmyDashboard ? 'Labourers Details' : 'Labour Management'}
                 </h2>
               </div>
-              {labours.length > entriesPerPage && (
+              {filteredLabours.length > entriesPerPage && (
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-gray-700">Page {currentPage} of {totalPages}</span>
                   <button
                     onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                     disabled={currentPage === 1}
-                    className={`px-3 py-1.5 rounded bg-blue-600 text-white font-semibold transition disabled:bg-gray-300 disabled:text-gray-500`}
+                    className={`px-3 py-1.5 rounded ${buttonClass} font-semibold transition disabled:bg-gray-300 disabled:text-gray-500`}
                   >
                     Prev
                   </button>
                   <button
                     onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
                     disabled={currentPage === totalPages}
-                    className={`px-3 py-1.5 rounded bg-blue-600 text-white font-semibold transition disabled:bg-gray-300 disabled:text-gray-500`}
+                    className={`px-3 py-1.5 rounded ${buttonClass} font-semibold transition disabled:bg-gray-300 disabled:text-gray-500`}
                   >
                     Next
                   </button>
@@ -244,6 +323,44 @@ function Dashboard() {
             </div>
             <div className="mt-2 h-1.5 w-28 bg-gradient-to-r from-blue-600 to-sky-500 rounded-full"></div>
           </div>
+
+          {/* Date Filter */}
+          <div className="mb-6 bg-white rounded-xl shadow-md p-4 border border-gray-200">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-semibold text-gray-700">From:</label>
+                <input
+                  type="date"
+                  value={filterStartDate}
+                  onChange={(e) => setFilterStartDate(e.target.value)}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-semibold text-gray-700">To:</label>
+                <input
+                  type="date"
+                  value={filterEndDate}
+                  onChange={(e) => setFilterEndDate(e.target.value)}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              {(filterStartDate || filterEndDate) && (
+                <button
+                  onClick={() => {
+                    setFilterStartDate('');
+                    setFilterEndDate('');
+                  }}
+                  className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm font-semibold rounded-lg transition"
+                >
+                  Clear Filter
+                </button>
+              )}
+              <div className="ml-auto text-sm text-gray-600">
+                Showing <span className="font-bold text-blue-600">{filteredLabours.length}</span> of <span className="font-bold">{labours.length}</span> labourers
+              </div>
+            </div>
+          </div>
             {/* Defence analytics cards moved to Analytics page */}
 
         
@@ -251,7 +368,7 @@ function Dashboard() {
         {/* Desktop / Tablet Table */}
         <div className="hidden md:block overflow-hidden rounded-xl border border-gray-200 bg-white shadow">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-blue-600 text-white">
+            <thead className={tableHeaderClass}>
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Labour Photo</th>
@@ -279,6 +396,10 @@ function Dashboard() {
                 <tr>
                   <td colSpan={isArmyDashboard ? 4 : 7} className="text-center py-4 text-gray-500">No labours found.</td>
                 </tr>
+              ) : filteredLabours.length === 0 ? (
+                <tr>
+                  <td colSpan={isArmyDashboard ? 4 : 7} className="text-center py-4 text-gray-500">No labours found for the selected date range.</td>
+                </tr>
               ) : (
                 paginatedLabours.map((labour) => {
                   const capitalize = (str) => str && typeof str === 'string' ? str.charAt(0).toUpperCase() + str.slice(1) : str;
@@ -288,7 +409,7 @@ function Dashboard() {
                       <td className="px-6 py-4">
                         {labour.photo_path ? (
                           <img
-                            src={`http://localhost:5000/${labour.photo_path}`}
+                            src={getImageUrl(labour.photo_path)}
                             alt="Labour"
                             className="w-12 h-12 object-cover rounded shadow border border-gray-200"
                             onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
@@ -308,7 +429,7 @@ function Dashboard() {
                         <td className="px-6 py-4">
                           {labour.adhar_path ? (
                             <img
-                              src={`http://localhost:5000/${labour.adhar_path}`}
+                              src={getImageUrl(labour.adhar_path)}
                               alt="Aadhaar"
                               className="w-12 h-12 object-cover rounded shadow border border-gray-200"
                               onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
@@ -339,7 +460,7 @@ function Dashboard() {
                             ) : '—'}
                           </td>
                           <td className="px-6 py-4">{labour.pan_path ? (
-                            <a href={`http://localhost:5000/${labour.pan_path}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">View</a>
+                            <a href={getImageUrl(labour.pan_path)} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">View</a>
                           ) : '—'}</td>
                         </>
                       )}
@@ -350,7 +471,7 @@ function Dashboard() {
                               onClick={() => handleView(labour)}
                               disabled={!!labour.army_unit_id}
                               title={labour.army_unit_id ? 'Already assigned to an Army Unit' : 'Review and assign'}
-                              className={`px-3 py-1 rounded-full shadow-sm transition text-white ${labour.army_unit_id ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+                              className={`px-3 py-1 rounded-full shadow-sm transition text-white ${labour.army_unit_id ? 'bg-gray-300 cursor-not-allowed' : buttonClass}`}
                             >
                               View
                             </button>
@@ -377,13 +498,16 @@ function Dashboard() {
           {labours.length === 0 && (
             <div className="text-center text-gray-500 bg-white border border-gray-200 rounded-lg py-6 shadow">No labours found.</div>
           )}
+          {labours.length > 0 && filteredLabours.length === 0 && (
+            <div className="text-center text-gray-500 bg-white border border-gray-200 rounded-lg py-6 shadow">No labours found for the selected date range.</div>
+          )}
           {paginatedLabours.map((labour) => {
             const capitalize = (str) => str && typeof str === 'string' ? str.charAt(0).toUpperCase() + str.slice(1) : str;
             return (
               <div key={labour.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow flex gap-4">
                 <div className="flex-shrink-0">
                   <img
-                    src={labour.photo_path ? `http://localhost:5000/${labour.photo_path}` : 'https://img.icons8.com/fluency/48/no-image.png'}
+                    src={labour.photo_path ? getImageUrl(labour.photo_path) : 'https://img.icons8.com/fluency/48/no-image.png'}
                     alt="Labour"
                     className="w-16 h-16 object-cover rounded shadow"
                     onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
@@ -409,7 +533,7 @@ function Dashboard() {
                           </>
                         ) : '—'}
                       </span>
-                      <span className="text-xs text-gray-700">PAN Path: {labour.pan_path ? (<a href={`http://localhost:5000/${labour.pan_path}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">View</a>) : '—'}</span>
+                      <span className="text-xs text-gray-700">PAN Path: {labour.pan_path ? (<a href={getImageUrl(labour.pan_path)} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">View</a>) : '—'}</span>
                     </div>
                   )}
                   {!isArmyDashboard && (
@@ -434,7 +558,7 @@ function Dashboard() {
               </div>
             );
           })}
-          {labours.length > entriesPerPage && (
+          {filteredLabours.length > entriesPerPage && (
             <div className="flex items-center justify-center gap-3 pt-2">
               <button
                 onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
@@ -585,7 +709,8 @@ function Dashboard() {
         )}
         </main>
       </div>
-  <Footer bgColor="rgb(11,80,162)" />
+      </div>
+  <Footer bgColor={themeColors.footerBg} />
     </div>
   );
 }

@@ -3,23 +3,10 @@ import { User, LogOut, Menu } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 function Header({ variant = 'blue', bgColor, isSidebarOpen, onToggleSidebar, emblemColor }) {
-  // Clear localStorage on tab close for proper logout
-  React.useEffect(() => {
-    const handleUnload = () => {
-      // Only clear if user is logged in
-      if (
-        localStorage.getItem('auth_token') ||
-        localStorage.getItem('userId') ||
-        localStorage.getItem('mobile_number')
-      ) {
-        localStorage.clear();
-      }
-    };
-  
-  }, []);
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  
   const isLoggedIn = !!(
     localStorage.getItem('auth_token') ||
     localStorage.getItem('userId') ||
@@ -47,50 +34,44 @@ function Header({ variant = 'blue', bgColor, isSidebarOpen, onToggleSidebar, emb
   }, [menuOpen]);
 
   const handleLogout = () => {
- localStorage.clear();
+    // Clear all localStorage items
+    localStorage.clear();
     setMenuOpen(false);
-    navigate('/login');
+    // Force a full page reload to reset app state
+    window.location.href = '/login';
   };
 
   return (
     <header className={`${theme} ${base}`} style={style}>
-       <div className="flex items-center gap-4">
-         <div className="flex items-center justify-center">
-           {/* Keep emblem bright and white over dark glass */}
-           <img src={require('../assets/gold_emb.png')} alt="Emblem" className="w-12 h-12 object-contain mix-blend-screen " />
+       <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+         <div className="flex items-center justify-center flex-shrink-0">
+           {/* Golden Emblem */}
+           <img src={require('../assets/gold_emb.png')} alt="Emblem" className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 object-contain drop-shadow-lg" />
          </div>
-         <div>
-           <h1 className="text-xl sm:text-2xl font-bold text-white tracking-wide drop-shadow-sm">
+         <div className="min-w-0 flex-1">
+           <h1 className="text-xs sm:text-sm md:text-lg lg:text-xl xl:text-2xl font-bold text-white tracking-wide drop-shadow-sm truncate">
           Directorate of Defence Labour Procurement, J&K and Ladakh
            </h1>
-           <h2 className="text-sm sm:text-base font-medium text-white/90 mt-1">
-             Government of J&K
+           <h2 className="text-[10px] sm:text-xs md:text-sm lg:text-base font-medium text-white/90 mt-0.5 sm:mt-1 truncate">
+             Government of Jammu Kashmir and Ladakh
            </h2>
          </div>
        </div>
        
-       <div className="flex items-center gap-4">
-         <div className="text-right">
-           <h1 className="text-lg sm:text-xl font-bold text-white tracking-wide drop-shadow-sm">
-           
-           </h1>
-           <span className="block text-xs sm:text-sm text-blue-100 mt-1 font-medium">
-         
-           </span>
-         </div>
+       <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
          {isLoggedIn && (
            <div className="relative" ref={menuRef}>
              <button
                type="button"
                onClick={() => setMenuOpen((v) => !v)}
-               className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-white/20 backdrop-blur-sm border-2 border-white/30 shadow-lg flex items-center justify-center hover:bg-white/30 transition-all duration-200 focus:outline-none"
+               className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full bg-white/20 backdrop-blur-sm border-2 border-white/30 shadow-lg flex items-center justify-center hover:bg-white/30 transition-all duration-200 focus:outline-none"
                aria-haspopup="menu"
                aria-expanded={menuOpen}
              >
-               <User className="w-6 h-6 text-white" />
+               <User className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
              </button>
              {/* Online indicator */}
-             <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white shadow-sm animate-pulse"></div>
+             <div className="absolute -top-1 -right-1 w-3 h-3 sm:w-4 sm:h-4 bg-green-400 rounded-full border-2 border-white shadow-sm animate-pulse"></div>
 
              {menuOpen && (
                <div className="absolute right-0 mt-2 w-48 rounded-xl z-50 overflow-hidden border border-white/10 shadow-2xl"

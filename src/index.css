@@ -1,3 +1,46 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Custom scrollable select dropdown styling */
+select[size] option {
+  padding: 8px 12px !important;
+  margin: 2px 0;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+select[size] option:hover {
+  background-color: #dbeafe !important;
+  color: #1e40af;
+}
+
+select[size] option:checked {
+  background-color: #3b82f6 !important;
+  color: white;
+}
+
+/* Smooth scrolling for select */
+select[size] {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+select[size]::-webkit-scrollbar {
+  width: 8px;
+}
+
+select[size]::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+select[size]::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 4px;
+  border: 2px solid #f1f5f9;
+}
+
+select[size]::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}

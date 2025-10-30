@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react'
 import Sidebar from './Sidebar';
 import Header from './Header';
 import Footer from './footer';
-import api from '../api/api';
+import api, { getImageUrl } from '../api/api';
 import { FiFileText, FiChevronRight } from 'react-icons/fi';
+import { getThemeColors, getTableHeaderClass, getButtonClass, getGradientTextClass } from '../utils/themeHelper';
 
 
 const AttendanceDetails = () => {
@@ -16,6 +17,30 @@ const AttendanceDetails = () => {
   const entriesPerPage = 5;
   const totalPages = Math.ceil(attendances.length / entriesPerPage);
   const paginatedAttendances = attendances.slice((currentPage - 1) * entriesPerPage, currentPage * entriesPerPage);
+
+  // CSV Download
+  const downloadCSV = () => {
+    // Columns: Labour Name, Attendance Date, Attendance Time, Photo URL
+    const headers = ['Labour Name', 'Attendance Date', 'Attendance Time', 'Photo URL'];
+    const rows = paginatedAttendances.map(a => [
+      a.labour_name,
+      formatDate(a.attendance_date),
+      formatTime(a.attendance_time),
+      a.photo_path ? (a.photo_path.startsWith('http') ? a.photo_path : getImageUrl(a.photo_path)) : ''
+    ]);
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'attendance_details.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   useEffect(() => {
     const fetchAttendances = async () => {
@@ -52,9 +77,26 @@ const AttendanceDetails = () => {
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   };
 
+  // Get theme colors
+  const themeColors = getThemeColors();
+  const tableHeaderClass = getTableHeaderClass();
+  const buttonClass = getButtonClass();
+  const gradientTextClass = getGradientTextClass();
+
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100">
-  <Header bgColor="rgb(11,80,162)" emblemColor="blue" isSidebarOpen={isSidebarOpen} onToggleSidebar={() => setIsSidebarOpen(true)} />
+  <div className="min-h-screen flex flex-col bg-gray-100 relative">
+      {/* White emblem watermark background */}
+      <div 
+        className="fixed inset-0 bg-center bg-no-repeat opacity-[0.12] pointer-events-none z-[1]"
+        style={{
+          backgroundImage: `url(${require('../assets/white_emb.jpeg')})`,
+          backgroundSize: '45%',
+        }}
+        aria-hidden="true"
+      ></div>
+      
+      <div className="relative z-10">
+  <Header bgColor={themeColors.headerBg} emblemColor="blue" isSidebarOpen={isSidebarOpen} onToggleSidebar={() => setIsSidebarOpen(true)} />
       {!isSidebarOpen && (
         <button
           type="button"
@@ -66,18 +108,27 @@ const AttendanceDetails = () => {
         </button>
       )}
       <div className="flex flex-1">
-  <Sidebar bgColor="rgb(11,80,162)" isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(v => !v)} />
-        <div className={`flex-1 px-6 pt-2 overflow-x-auto pb-24 transition-all duration-300 ${isSidebarOpen ? 'ml-60' : 'ml-0'} mt-1`}>
-        <div className="mb-5">
+  <Sidebar bgColor={themeColors.sidebarBg} isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(v => !v)} />
+  <div className={`flex-1 px-3 sm:px-4 md:px-6 pt-2 overflow-x-auto pb-24 transition-all duration-300 ${isSidebarOpen ? 'md:ml-60' : 'ml-0'} mt-1`}>
+  <div className="mb-4 sm:mb-5">
           <div className="flex items-end gap-3">
-            <span className="h-10 w-10 rounded-full bg-blue-100 ring-1 ring-blue-200 shadow-sm flex items-center justify-center">
-              <FiFileText className="text-blue-600 w-6 h-6" />
+            <span className={`h-10 w-10 rounded-full ${themeColors.primary.includes('059669') ? 'bg-green-100 ring-green-200' : themeColors.primary.includes('1f2937') ? 'bg-gray-100 ring-gray-200' : 'bg-blue-100 ring-blue-200'} ring-1 shadow-sm flex items-center justify-center`}>
+              <FiFileText className={`${themeColors.primary.includes('059669') ? 'text-green-600' : themeColors.primary.includes('1f2937') ? 'text-gray-600' : 'text-blue-600'} w-6 h-6`} />
             </span>
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-sky-500 drop-shadow-sm">Attendance Details</h2>
+            <h2 className={`text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight ${gradientTextClass} drop-shadow-sm`}>Attendance Details</h2>
           </div>
-          <div className="mt-2 h-1.5 w-28 bg-gradient-to-r from-blue-600 to-sky-500 rounded-full"></div>
+          <div className={`mt-2 h-1.5 w-28 ${gradientTextClass.includes('green') ? 'bg-gradient-to-r from-green-600 to-emerald-500' : gradientTextClass.includes('gray') ? 'bg-gradient-to-r from-gray-700 to-gray-500' : 'bg-gradient-to-r from-blue-600 to-sky-500'} rounded-full`}></div>
         </div>
-        <div className="mb-4 flex flex-wrap gap-4 items-center">
+  <div className="mb-4 flex flex-wrap gap-4 items-center">
+        {/* Download CSV Button */}
+        <div className="mb-4">
+          <button
+            className={`px-4 py-2 rounded font-semibold shadow ${buttonClass}`}
+            onClick={downloadCSV}
+          >
+            Download CSV
+          </button>
+        </div>
           <div>
             <label className="font-semibold mr-2">Filter by Date:</label>
             <input
@@ -119,7 +170,7 @@ const AttendanceDetails = () => {
         <div className="bg-white rounded-xl shadow-lg p-4 hidden md:block">
           <table className="min-w-full divide-y divide-gray-200">
             <thead>
-              <tr>
+              <tr className={tableHeaderClass}>
                 <th className="px-4 py-2 text-left font-semibold">Labour Name</th>
                 <th className="px-4 py-2 text-left font-semibold">Attendance Date</th>
                 <th className="px-4 py-2 text-left font-semibold">Attendance Time</th>
@@ -140,7 +191,7 @@ const AttendanceDetails = () => {
                         <img
                           src={a.photo_path.startsWith('http')
                             ? a.photo_path
-                            : `http://localhost:5000/${a.photo_path}`}
+                            : getImageUrl(a.photo_path)}
                           alt="Attendance"
                           className="w-16 h-16 object-cover rounded shadow border border-gray-200"
                           onError={e => { e.target.onerror = null; e.target.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
@@ -160,7 +211,7 @@ const AttendanceDetails = () => {
         {totalPages > 1 && (
           <div className="flex justify-center items-center mt-4 gap-2">
             <button
-              className="px-3 py-1 rounded bg-blue-100 text-blue-700 font-semibold disabled:opacity-50"
+              className={`px-3 py-1 rounded font-semibold disabled:opacity-50 ${buttonClass}`}
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
             >
@@ -168,7 +219,7 @@ const AttendanceDetails = () => {
             </button>
             <span className="mx-2 text-base font-medium">Page {currentPage} of {totalPages}</span>
             <button
-              className="px-3 py-1 rounded bg-blue-100 text-blue-700 font-semibold disabled:opacity-50"
+              className={`px-3 py-1 rounded font-semibold disabled:opacity-50 ${buttonClass}`}
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
             >
@@ -188,7 +239,7 @@ const AttendanceDetails = () => {
             <div key={a.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow flex gap-4">
               <div className="flex-shrink-0">
                 <img
-                  src={a.photo_path ? (a.photo_path.startsWith('http') ? a.photo_path : `http://localhost:5000/${a.photo_path}`) : 'https://img.icons8.com/fluency/48/no-image.png'}
+                  src={a.photo_path ? (a.photo_path.startsWith('http') ? a.photo_path : getImageUrl(a.photo_path)) : 'https://img.icons8.com/fluency/48/no-image.png'}
                   alt="Attendance"
                   className="w-16 h-16 object-cover rounded border"
                   onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
@@ -205,20 +256,21 @@ const AttendanceDetails = () => {
               <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="px-3 py-1 rounded bg-blue-600 text-white text-sm disabled:bg-gray-300"
+                className={`px-3 py-1 rounded text-white text-sm disabled:bg-gray-300 ${buttonClass}`}
               >Prev</button>
               <span className="text-sm font-medium text-gray-700">{currentPage}/{totalPages}</span>
               <button
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                className="px-3 py-1 rounded bg-blue-600 text-white text-sm disabled:bg-gray-300"
+                className={`px-3 py-1 rounded text-white text-sm disabled:bg-gray-300 ${buttonClass}`}
               >Next</button>
             </div>
           )}
         </div>
-        </div>
       </div>
-  <Footer bgColor="rgb(11,80,162)" />
+      </div>
+      </div>
+  <Footer bgColor={themeColors.footerBg} />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import Header from './Header';
 import Footer from './footer';
 import api from '../api/api';
 import { FiUsers, FiChevronRight } from 'react-icons/fi';
+import { getThemeColors, getTableHeaderClass, getButtonClass, getGradientTextClass } from '../utils/themeHelper';
 
 function UnitData() {
   const [labours, setLabours] = useState([]);
@@ -41,9 +42,26 @@ function UnitData() {
   const totalPages = Math.ceil(labours.length / entriesPerPage) || 1;
   const paginatedLabours = labours.slice((currentPage - 1) * entriesPerPage, currentPage * entriesPerPage);
 
+  // Get theme colors
+  const themeColors = getThemeColors();
+  const tableHeaderClass = getTableHeaderClass();
+  const buttonClass = getButtonClass();
+  const gradientTextClass = getGradientTextClass();
+
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100">
-  <Header bgColor="rgb(11,80,162)" emblemColor="blue" isSidebarOpen={isSidebarOpen} onToggleSidebar={() => setIsSidebarOpen(true)} />
+    <div className="min-h-screen flex flex-col bg-gray-100 relative">
+      {/* White emblem watermark background */}
+      <div 
+        className="fixed inset-0 bg-center bg-no-repeat opacity-[0.12] pointer-events-none z-[1]"
+        style={{
+          backgroundImage: `url(${require('../assets/white_emb.jpeg')})`,
+          backgroundSize: '45%',
+        }}
+        aria-hidden="true"
+      ></div>
+      
+      <div className="relative z-10">
+  <Header bgColor={themeColors.headerBg} emblemColor="blue" isSidebarOpen={isSidebarOpen} onToggleSidebar={() => setIsSidebarOpen(true)} />
       {!isSidebarOpen && (
         <button
           type="button"
@@ -55,23 +73,23 @@ function UnitData() {
         </button>
       )}
       <div className="flex flex-1">
-  <Sidebar bgColor="rgb(11,80,162)" isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(v => !v)} />
-        <main className={`flex-1 px-6 pt-2 pb-24 transition-all duration-300 ${isSidebarOpen ? 'ml-60' : 'ml-0'} mt-1`}>
-        <div className="mb-5">
+  <Sidebar bgColor={themeColors.sidebarBg} isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(v => !v)} />
+        <main className={`flex-1 px-3 sm:px-4 md:px-6 pt-2 pb-24 transition-all duration-300 ${isSidebarOpen ? 'md:ml-60' : 'ml-0'} mt-1 overflow-x-hidden`}>
+        <div className="mb-4 sm:mb-5">
           <div className="flex items-end gap-3">
-            <span className="h-10 w-10 rounded-full bg-blue-100 ring-1 ring-blue-200 shadow-sm flex items-center justify-center">
-              <FiUsers className="text-blue-600 w-6 h-6" />
+            <span className={`h-10 w-10 rounded-full ${themeColors.primary.includes('059669') ? 'bg-green-100 ring-green-200' : themeColors.primary.includes('1f2937') ? 'bg-gray-100 ring-gray-200' : 'bg-blue-100 ring-blue-200'} ring-1 shadow-sm flex items-center justify-center`}>
+              <FiUsers className={`${themeColors.primary.includes('059669') ? 'text-green-600' : themeColors.primary.includes('1f2937') ? 'text-gray-600' : 'text-blue-600'} w-6 h-6`} />
             </span>
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-sky-500 drop-shadow-sm">
+            <h1 className={`text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight ${gradientTextClass} drop-shadow-sm`}>
               Labours & Assigned Units
             </h1>
           </div>
-          <div className="mt-2 h-1.5 w-28 bg-gradient-to-r from-blue-600 to-sky-500 rounded-full"></div>
+          <div className={`mt-2 h-1.5 w-28 ${gradientTextClass.includes('green') ? 'bg-gradient-to-r from-green-600 to-emerald-500' : gradientTextClass.includes('gray') ? 'bg-gradient-to-r from-gray-700 to-gray-500' : 'bg-gradient-to-r from-blue-600 to-sky-500'} rounded-full`}></div>
         </div>
 
         <div className="hidden md:block overflow-hidden rounded-xl border border-gray-200 bg-white shadow">
           <table className="min-w-full divide-y divide-gray-200 text-gray-800">
-            <thead className="bg-blue-600 text-white">
+            <thead className={tableHeaderClass}>
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Father Name</th>
@@ -130,13 +148,13 @@ function UnitData() {
               <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="px-3 py-1 rounded bg-blue-600 text-white text-sm disabled:bg-gray-300"
+                className={`px-3 py-1 rounded text-white text-sm disabled:bg-gray-300 ${buttonClass}`}
               >Prev</button>
               <span className="text-sm font-medium text-gray-700">{currentPage}/{totalPages}</span>
               <button
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                className="px-3 py-1 rounded bg-blue-600 text-white text-sm disabled:bg-gray-300"
+                className={`px-3 py-1 rounded text-white text-sm disabled:bg-gray-300 ${buttonClass}`}
               >Next</button>
             </div>
           )}
@@ -146,7 +164,7 @@ function UnitData() {
             <button
               onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
-              className={`px-4 py-2 rounded bg-blue-600 text-white font-semibold transition disabled:bg-gray-300 disabled:text-gray-500`}
+              className={`px-4 py-2 rounded text-white font-semibold transition disabled:bg-gray-300 disabled:text-gray-500 ${buttonClass}`}
             >
               Prev
             </button>
@@ -154,7 +172,7 @@ function UnitData() {
             <button
               onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
-              className={`px-4 py-2 rounded bg-blue-600 text-white font-semibold transition disabled:bg-gray-300 disabled:text-gray-500`}
+              className={`px-4 py-2 rounded text-white font-semibold transition disabled:bg-gray-300 disabled:text-gray-500 ${buttonClass}`}
             >
               Next
             </button>
@@ -162,7 +180,8 @@ function UnitData() {
         )}
         </main>
       </div>
-  <Footer bgColor="rgb(11,80,162)" />
+      </div>
+  <Footer bgColor={themeColors.footerBg} />
     </div>
   );
 }

@@ -18,6 +18,9 @@ function LabourForm() {
   bank_ifsc_code: '',
   adhar_path: '', // data URL preview
   adharFile: null, // actual file to send
+  pan_number: '',
+  pan_path: '', // data URL preview
+  panFile: null, // actual file to send
   });
 
   const [sectors, setSectors] = useState([]);
@@ -25,9 +28,13 @@ function LabourForm() {
   useEffect(() => {
     const fetchSectors = async () => {
       try {
-        const response = await api.get('/dynamic/sectors');
-        setSectors(response.data.data || []);
+        // Try to fetch all sectors with a large limit parameter
+        const response = await api.get('/dynamic/sectors?limit=500');
+        console.log('Sectors API response:', response.data);
+        console.log('Total sectors:', response.data.count);
+        setSectors(response.data.data || response.data.sectors || []);
       } catch (err) {
+        console.error('Failed to fetch sectors:', err);
         setSectors([]);
       }
     };
@@ -109,6 +116,14 @@ function LabourForm() {
   if (!formData.bank_ifsc_code.trim()) newErrors.bank_ifsc_code = 'IFSC code is required.';
   else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/i.test(formData.bank_ifsc_code.trim())) newErrors.bank_ifsc_code = 'Enter a valid IFSC code.';
   if (!formData.adharFile) newErrors.adhar_path = 'Aadhaar image is required.';
+      
+      // PAN validation
+      if (formData.pan_number.trim() && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i.test(formData.pan_number.trim())) {
+        newErrors.pan_number = 'Enter a valid PAN number (e.g., ABCDE1234F)';
+      }
+      if (formData.pan_number.trim() && !formData.panFile) {
+        newErrors.pan_path = 'PAN card image is required when PAN number is provided.';
+      }
     }
     return newErrors;
   };
@@ -119,6 +134,10 @@ function LabourForm() {
     // Force digits only for certain numeric fields
     if (['contact_number', 'aadhaar_number', 'bank_account_no'].includes(name)) {
       value = value.replace(/\D/g, '');
+    }
+    // Force uppercase for PAN number
+    if (name === 'pan_number') {
+      value = value.toUpperCase();
     }
     setFormData({ ...formData, [name]: value });
     setErrors({ ...errors, [name]: undefined });
@@ -151,6 +170,17 @@ function LabourForm() {
     reader.onload = () => {
       setFormData((prev) => ({ ...prev, adhar_path: reader.result, adharFile: file }));
       setErrors((prev) => ({ ...prev, adhar_path: undefined }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePanFile = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFormData((prev) => ({ ...prev, pan_path: reader.result, panFile: file }));
+      setErrors((prev) => ({ ...prev, pan_path: undefined }));
     };
     reader.readAsDataURL(file);
   };
@@ -200,6 +230,15 @@ function LabourForm() {
         form.append('adhar', adharFile);
       }
 
+      // PAN files
+      if (formData.pan_number) form.append('pan_number', formData.pan_number);
+      if (formData.panFile) {
+        form.append('pan', formData.panFile);
+      } else if (formData.pan_path) {
+        const panFile = dataURLtoFile(formData.pan_path, 'pan.jpg');
+        form.append('pan', panFile);
+      }
+
       await api.post('/labour/register', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
@@ -217,6 +256,9 @@ function LabourForm() {
         bank_ifsc_code: '',
         adhar_path: '',
         adharFile: null,
+        pan_number: '',
+        pan_path: '',
+        panFile: null,
       });
       setCapturedPhoto(null);
       setShowBankForm(false);
@@ -229,23 +271,28 @@ function LabourForm() {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Background image with blur and dark overlay */}
-      <img src={require('../assets/labour_pic.jpg')} alt="Background" className="absolute inset-0 w-full h-full object-cover scale-105" />
-      <div className="absolute inset-0 bg-black/40" aria-hidden="true"></div>
-      <div className="absolute inset-0 backdrop-blur-sm" aria-hidden="true"></div>
+    <div className="min-h-screen relative overflow-hidden bg-gray-50">
+      {/* White emblem watermark background */}
+      <div 
+        className="fixed inset-0 bg-center bg-no-repeat opacity-[0.12] pointer-events-none z-[1]"
+        style={{
+          backgroundImage: `url(${require('../assets/white_emb.jpeg')})`,
+          backgroundSize: '45%',
+        }}
+        aria-hidden="true"
+      ></div>
 
       {/* Content */}
-      <div className="relative flex flex-col min-h-screen">
-        <Header variant="glass" />
+      <div className="relative flex flex-col min-h-screen z-10">
+        <Header bgColor="rgb(11,80,162)" />
 
         {/* Main Content Area with proper spacing */}
         <main className="flex-1 py-8 px-4 sm:px-6 lg:px-8 pb-28">
           <div className="max-w-3xl mx-auto mb-12">
             {/* Form Container */}
-            <form onSubmit={handleSubmit} className="bg-white/70 backdrop-blur-lg rounded-3xl shadow-2xl border border-white/30 overflow-hidden">
+            <form onSubmit={handleSubmit} className="bg-white rounded-3xl shadow-2xl border border-gray-200 overflow-hidden">
               {/* Form Header */}
-              <div className="bg-gradient-to-r from-blue-500/90 to-blue-400/80 px-8 py-6">
+              <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-8 py-6">
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm border border-white/30">
                     <UserCheck className="w-8 h-8 text-white" />
@@ -317,7 +364,9 @@ function LabourForm() {
                         >
                           <option value="">Select your work sector</option>
                           {sectors.map(sector => (
-                            <option key={sector.id} value={sector.id}>{sector.name}</option>
+                            <option key={sector.id} value={sector.id}>
+                              {sector.name}
+                            </option>
                           ))}
                         </select>
                         <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
@@ -554,6 +603,45 @@ function LabourForm() {
                         </div>
                       </div>
 
+                      {/* PAN Details (Optional) */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-gray-700">
+                            <div className="flex items-center gap-2">
+                              <CreditCard className="w-4 h-4 text-emerald-600" />
+                              PAN Number (Optional)
+                            </div>
+                          </label>
+                          <input
+                            type="text"
+                            name="pan_number"
+                            value={formData.pan_number}
+                            onChange={handleChange}
+                            className={`w-full p-4 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-300 uppercase ${errors.pan_number ? 'border-red-400 bg-red-50' : 'border-white/50 md:border-gray-200'}`}
+                            placeholder="e.g., ABCDE1234F"
+                            maxLength={10}
+                            autoComplete="off"
+                          />
+                          {errors.pan_number && <p className="text-red-500 text-sm">{errors.pan_number}</p>}
+                          <p className="text-xs text-gray-600">Format: 5 letters, 4 digits, 1 letter</p>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-gray-700">
+                            Upload PAN Card Image {formData.pan_number && '(Required)'}
+                          </label>
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            onChange={handlePanFile} 
+                            className="w-full p-3 border-2 rounded-xl bg-white/70 md:bg-white" 
+                          />
+                          {errors.pan_path && <p className="text-red-500 text-sm">{errors.pan_path}</p>}
+                          {formData.pan_path && (
+                            <img src={formData.pan_path} alt="PAN Preview" className="mt-2 w-40 h-28 object-cover rounded-md border" />
+                          )}
+                        </div>
+                      </div>
+
                       {/* Submit after bank details */}
                       <div className="pt-2">
                         <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white px-8 py-4 rounded-xl font-bold text-lg shadow-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed transform hover:scale-[1.02]" disabled={submitting}>
@@ -578,7 +666,7 @@ function LabourForm() {
           </div>
         </main>
 
-        <Footer variant="glass" />
+        <Footer bgColor="rgb(11,80,162)" />
       </div>
     </div>
   );

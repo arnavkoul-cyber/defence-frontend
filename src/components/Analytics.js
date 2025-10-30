@@ -19,6 +19,7 @@ import Footer from './footer';
 import api from '../api/api';
 import { FiUsers, FiCheckCircle, FiAlertCircle, FiDatabase, FiGrid, FiCreditCard, FiPercent, FiActivity } from 'react-icons/fi';
 import LabourWorkingDays from './LabourWorkingDays';
+import { getThemeColors, getGradientTextClass } from '../utils/themeHelper';
 
 const StatsCard = ({ title, value, subtitle, icon, color }) => (
   <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-4 drop-shadow-xl transition-shadow duration-200 hover:shadow-2xl hover:drop-shadow-2xl">
@@ -206,9 +207,24 @@ function Analytics() {
   const donutOptions = { plugins: { legend: { position: 'bottom' } } };
   const lineOptions = { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } };
 
+  // Get theme colors
+  const themeColors = getThemeColors();
+  const gradientTextClass = getGradientTextClass();
+
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100">
-  <Header bgColor="rgb(11,80,162)" emblemColor="blue" isSidebarOpen={isSidebarOpen} onToggleSidebar={() => setIsSidebarOpen(true)} />
+    <div className="min-h-screen flex flex-col bg-gray-100 relative">
+      {/* White emblem watermark background */}
+      <div 
+        className="fixed inset-0 bg-center bg-no-repeat opacity-[0.12] pointer-events-none z-[1]"
+        style={{
+          backgroundImage: `url(${require('../assets/white_emb.jpeg')})`,
+          backgroundSize: '45%',
+        }}
+        aria-hidden="true"
+      ></div>
+      
+      <div className="relative z-10">
+  <Header bgColor={themeColors.headerBg} emblemColor="blue" isSidebarOpen={isSidebarOpen} onToggleSidebar={() => setIsSidebarOpen(true)} />
       {!isSidebarOpen && (
         <button
           type="button"
@@ -221,11 +237,11 @@ function Analytics() {
         </button>
       )}
       <div className="flex flex-1">
-  <Sidebar bgColor="rgb(11,80,162)" isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(v => !v)} />
-        <main className={`flex-1 px-6 pt-2 pb-24 transition-all duration-300 ${isSidebarOpen ? 'ml-60' : 'ml-0'} mt-1`}>
-          <div className="mb-5">
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-sky-500 drop-shadow-sm">{isArmyDashboard ? 'Unit Analytics' : 'Analytics'}</h2>
-            <div className="mt-2 h-1.5 w-28 bg-gradient-to-r from-blue-600 to-sky-500 rounded-full"></div>
+  <Sidebar bgColor={themeColors.sidebarBg} isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(v => !v)} />
+        <main className={`flex-1 px-3 sm:px-4 md:px-6 pt-2 pb-24 transition-all duration-300 ${isSidebarOpen ? 'md:ml-60' : 'ml-0'} mt-1 overflow-x-hidden`}>
+          <div className="mb-4 sm:mb-5">
+            <h2 className={`text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight ${gradientTextClass} drop-shadow-sm`}>{isArmyDashboard ? 'Unit Analytics' : 'Analytics'}</h2>
+            <div className={`mt-2 h-1.5 w-28 ${gradientTextClass.includes('green') ? 'bg-gradient-to-r from-green-600 to-emerald-500' : gradientTextClass.includes('gray') ? 'bg-gradient-to-r from-gray-700 to-gray-500' : 'bg-gradient-to-r from-blue-600 to-sky-500'} rounded-full`}></div>
           </div>
           {/* Analytics Cards */}
           {!isArmyDashboard && (
@@ -265,7 +281,8 @@ function Analytics() {
           )}
         </main>
       </div>
-  <Footer bgColor="rgb(11,80,162)" />
+      </div>
+  <Footer bgColor={themeColors.footerBg} />
     </div>
   );
 }
