@@ -84,8 +84,9 @@ function Analytics() {
           setLabours(labRes.data.labours || []);
         } catch {}
         try {
-          const res = await api.get('/dynamic/army_units');
-          setArmyUnits(res.data.data || []);
+          const sectorId = localStorage.getItem('sector_id');
+          const res = await api.get(`/army-units/by-sector?sector_id=${sectorId}`);
+          setArmyUnits(res.data.army_units || []);
         } catch {}
         try {
           const res = await api.get('/dynamic/sectors');

@@ -23,8 +23,9 @@ function UnitData() {
       .then(res => setSectors(res.data.data || []))
       .catch(err => console.error('Error fetching sectors:', err));
 
-    api.get('/dynamic/army_units')
-      .then(res => setArmyUnits(res.data.data || []))
+    const sectorId = localStorage.getItem('sector_id');
+    api.get(`/army-units/by-sector?sector_id=${sectorId}`)
+      .then(res => setArmyUnits(res.data.army_units || []))
       .catch(err => console.error('Error fetching army units:', err));
   }, []);
 

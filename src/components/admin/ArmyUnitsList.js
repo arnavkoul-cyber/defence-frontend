@@ -67,6 +67,7 @@ const ArmyUnitsList = () => {
       setError(null);
       try {
         const token = localStorage.getItem('auth_token');
+        // Fetch all army units for admin
         const [unitsRes, sectorsRes] = await Promise.all([
           api.get(`/army-units?t=${Date.now()}`, { headers: { Authorization: `Bearer ${token}` } }),
           api.get(`/sectors?t=${Date.now()}`, { headers: { Authorization: `Bearer ${token}` } })

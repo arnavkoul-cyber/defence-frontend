@@ -79,8 +79,9 @@ function Dashboard() {
 
   const fetchArmyUnits = async () => {
     try {
-      const res = await api.get('/dynamic/army_units');
-      setArmyUnits(res.data.data || []);
+      const sectorId = localStorage.getItem('sector_id');
+      const res = await api.get(`/army-units/by-sector?sector_id=${sectorId}`);
+      setArmyUnits(res.data.army_units || []);
     } catch (err) {
       console.error('Error fetching army units:', err);
     }

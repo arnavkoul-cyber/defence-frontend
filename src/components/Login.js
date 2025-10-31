@@ -53,17 +53,24 @@ export default function Login() {
 
     try {
       setLoading(true);
-      
       // Clear all previous localStorage data before new login
       localStorage.clear();
-      
-      const res = await api.post('/auth/login', { mobile_number: mobile });
+  // Map dropdown value to correct role value
+  let roleValue = '';
+  if (userType === 'Director of Defence Labour') roleValue = 'defence officer';
+  else if (userType === 'Army Officer') roleValue = 'army officer';
+  else if (userType === 'Admin') roleValue = 'admin';
+  const res = await api.post('/auth/login', { mobile_number: mobile, user_type: roleValue });
 
       // Admin route
       if ((userType === 'Admin' || res?.data?.user?.role === 'admin')) {
         localStorage.setItem('role', 'admin');
         localStorage.setItem('userType', 'admin');
         localStorage.setItem('auth_token', res.data.token);
+        // Store sector_id if available
+        if (res.data.user && res.data.user.sector_id) {
+          localStorage.setItem('sector_id', res.data.user.sector_id);
+        }
         toast.success('Login successful!', { position: 'top-center', autoClose: 1200 });
         setTimeout(() => { window.location.href = '/admin/users'; }, 1000);
         return;
@@ -76,10 +83,19 @@ export default function Login() {
       localStorage.setItem('userId', res.data.user.id);
       localStorage.setItem('army_unit_id', res.data.user.army_unit_id);
       localStorage.setItem('mobile_number', res.data.user.mobile_number);
+      // Store sector_id if available
+      if (res.data.user && res.data.user.sector_id) {
+        localStorage.setItem('sector_id', res.data.user.sector_id);
+      }
       toast.success('Login successful!', { position: 'top-center', autoClose: 1200 });
       setTimeout(() => navigate('/dashboard'), 1000);
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Login failed! Please try again.', { position: 'top-center', autoClose: 2000 });
+      const errorMsg = err?.response?.data?.error || err?.response?.data?.message;
+      if (errorMsg === 'Access denied: not an admin user') {
+        toast.error('You are not authorized to login as admin. Please select the correct user type.', { position: 'top-center', autoClose: 2500 });
+      } else {
+        toast.error(errorMsg || 'Login failed! Please try again.', { position: 'top-center', autoClose: 2000 });
+      }
     } finally {
       setLoading(false);
     }

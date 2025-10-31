@@ -42,6 +42,8 @@ function LabourForm() {
   }, []);
 
   const [errors, setErrors] = useState({});
+  const MAX_FILE_SIZE_MB = 20;
+  const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
   const [submitting, setSubmitting] = useState(false);
   const [capturedPhoto, setCapturedPhoto] = useState(null);
   const [showCamera, setShowCamera] = useState(false);
@@ -68,11 +70,22 @@ function LabourForm() {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      // Resize to max width/height (500px)
+      const maxDim = 500;
+      const scale = Math.min(maxDim / video.videoWidth, maxDim / video.videoHeight, 1);
+      canvas.width = video.videoWidth * scale;
+      canvas.height = video.videoHeight * scale;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/png');
+
+      // Compress to JPEG with quality 0.5
+      let quality = 0.5;
+      let dataUrl = canvas.toDataURL('image/jpeg', quality);
+      // Keep compressing until <1MB or minimum quality
+      while (dataUrl.length > 1 * 1024 * 1024 && quality > 0.2) {
+        quality -= 0.05;
+        dataUrl = canvas.toDataURL('image/jpeg', quality);
+      }
       setCapturedPhoto(dataUrl);
       // Stop camera
       if (video.srcObject) {
@@ -166,6 +179,10 @@ function LabourForm() {
   const handleAadharFile = (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
+    if (file.size > MAX_FILE_SIZE) {
+      setErrors((prev) => ({ ...prev, adhar_path: `Aadhaar image is too large (max ${MAX_FILE_SIZE_MB}MB)` }));
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
       setFormData((prev) => ({ ...prev, adhar_path: reader.result, adharFile: file }));
@@ -177,6 +194,10 @@ function LabourForm() {
   const handlePanFile = (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
+    if (file.size > MAX_FILE_SIZE) {
+      setErrors((prev) => ({ ...prev, pan_path: `PAN card image is too large (max ${MAX_FILE_SIZE_MB}MB)` }));
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
       setFormData((prev) => ({ ...prev, pan_path: reader.result, panFile: file }));
@@ -596,6 +617,7 @@ function LabourForm() {
                         <div className="space-y-2">
                           <label className="text-sm font-semibold text-gray-700">Upload Aadhaar Image</label>
                           <input type="file" accept="image/*" onChange={handleAadharFile} className="w-full p-3 border-2 rounded-xl bg-white/70 md:bg-white" />
+                          <p className="text-xs text-gray-600 mt-1">Upload Aadhaar image less than 20MB</p>
                           {errors.adhar_path && <p className="text-red-500 text-sm">{errors.adhar_path}</p>}
                           {formData.adhar_path && (
                             <img src={formData.adhar_path} alt="Aadhaar Preview" className="mt-2 w-40 h-28 object-cover rounded-md border" />
@@ -635,6 +657,7 @@ function LabourForm() {
                             onChange={handlePanFile} 
                             className="w-full p-3 border-2 rounded-xl bg-white/70 md:bg-white" 
                           />
+                          <p className="text-xs text-gray-600 mt-1">Upload PAN card image less than 20MB</p>
                           {errors.pan_path && <p className="text-red-500 text-sm">{errors.pan_path}</p>}
                           {formData.pan_path && (
                             <img src={formData.pan_path} alt="PAN Preview" className="mt-2 w-40 h-28 object-cover rounded-md border" />
