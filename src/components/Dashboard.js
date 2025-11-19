@@ -1,3 +1,5 @@
+import { FiEdit2 } from 'react-icons/fi';
+
 import React, { useEffect, useState } from 'react';
 import api, { getImageUrl } from '../api/api';
 import Sidebar from './Sidebar';
@@ -6,9 +8,91 @@ import Footer from './footer';
 import { FiUsers, FiChevronRight } from 'react-icons/fi';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import { toast } from 'react-toastify';
+import noPhoto from '../assets/no_photo.png';
 import { getThemeColors, getTableHeaderClass, getButtonClass, getGradientTextClass } from '../utils/themeHelper';
 
 function Dashboard() {
+  // Validation state for edit modal
+  const [editErrors, setEditErrors] = useState({});
+
+  // Validation function
+  const validateEditForm = (form) => {
+    const errors = {};
+    if (!/^\d{10}$/.test(form.contact_number)) {
+      errors.contact_number = 'Contact number must be 10 digits.';
+    }
+    if (!/^\d{12}$/.test(form.aadhaar_number)) {
+      errors.aadhaar_number = 'Aadhaar number must be 12 digits.';
+    }
+    if (form.pan_number && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i.test(form.pan_number)) {
+      errors.pan_number = 'PAN must be 5 letters, 4 digits, 1 letter.';
+    }
+    return errors;
+  };
+  // Edit modal state and handlers (must be inside function)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    contact_number: '',
+    father_name: '',
+    aadhaar_number: '',
+    bank_name: '',
+    bank_account_no: '',
+    bank_ifsc_code: '',
+    pan_number: '',
+    adhar_path: '',
+    pan_path: '',
+    photo_path: '',
+  });
+
+  const handleEditClick = (labour) => {
+    setSelectedLabour(labour);
+    setEditForm({
+      name: labour.name || '',
+      contact_number: labour.contact_number || '',
+      father_name: labour.father_name || '',
+      aadhaar_number: labour.aadhaar_number || '',
+      bank_name: labour.bank_name || '',
+      bank_account_no: labour.bank_account_no || '',
+      bank_ifsc_code: labour.bank_ifsc_code || '',
+      pan_number: labour.pan_number || '',
+      adhar_path: labour.adhar_path || '',
+      pan_path: labour.pan_path || '',
+      photo_path: labour.photo_path || '',
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditFormChange = (e) => {
+    const { name, value, files } = e.target;
+    if (files && files[0]) {
+      // Convert image to base64
+      const reader = new FileReader();
+      reader.onload = () => {
+        setEditForm((prev) => ({ ...prev, [name]: reader.result }));
+      };
+      reader.readAsDataURL(files[0]);
+    } else {
+      setEditForm((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleEditFormSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedLabour) return;
+    const errors = validateEditForm(editForm);
+    setEditErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+    try {
+      await api.put(`/labour/${selectedLabour.id}`, editForm);
+      toast.success('Labour updated successfully!', { position: 'top-center', autoClose: 1800 });
+      setIsEditModalOpen(false);
+      setSelectedLabour(null);
+      await fetchLabours();
+    } catch (err) {
+      toast.error('Failed to update labour', { position: 'top-center', autoClose: 1800 });
+    }
+  };
   // For masking PAN and Aadhaar numbers per row
   const [visibleRows, setVisibleRows] = useState({});
 
@@ -43,35 +127,36 @@ function Dashboard() {
   const [endDate, setEndDate] = useState('');
   
   // Date filter state
-  const [filterStartDate, setFilterStartDate] = useState('');
-  const [filterEndDate, setFilterEndDate] = useState('');
+  // Set default values: start of month and today
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  const defaultStart = `${yyyy}-${mm}-01`;
+  const defaultEnd = `${yyyy}-${mm}-${dd}`;
+  const [filterStartDate, setFilterStartDate] = useState(defaultStart);
+  const [filterEndDate, setFilterEndDate] = useState(defaultEnd);
   const [filteredLabours, setFilteredLabours] = useState([]);
 
   const fetchLabours = async () => {
     try {
-      const armyUnitId = localStorage.getItem('army_unit_id');
-      let tableTile;
-      if (!armyUnitId || armyUnitId === "null") {
-        tableTile = "Labours Management";
-        const res = await api.get(`/labour/${localStorage.getItem('userId')}`);
-        const list = Array.isArray(res.data.labours) ? res.data.labours.slice() : [];
-        // Show newest first: prefer created_at, fallback to id
-        list.sort((a, b) => {
-          const da = a && a.created_at ? new Date(a.created_at).getTime() : 0;
-          const db = b && b.created_at ? new Date(b.created_at).getTime() : 0;
-          if (db !== da) return db - da;
-          const ia = typeof a?.id === 'number' ? a.id : parseInt(a?.id ?? 0, 10) || 0;
-          const ib = typeof b?.id === 'number' ? b.id : parseInt(b?.id ?? 0, 10) || 0;
-          return ib - ia;
-        });
-        setLabours(list);
-      } 
-      else {  
-        tableTile = "Labours Details";
-        const res = await api.get(`/labour/assigned/${localStorage.getItem('mobile_number')}`);
-        setLabours(res.data.labours || []);
-      }
-      setCurrentPage(1); // Reset to first page on fetch
+      const officerId = localStorage.getItem('userId');
+      const res = await api.post('/labour/by-officer', {
+        officer_id: officerId,
+        startDate: filterStartDate,
+        endDate: filterEndDate
+      });
+      const list = Array.isArray(res.data.labours) ? res.data.labours.slice() : [];
+      // Show newest first: prefer created_at, fallback to id
+      list.sort((a, b) => {
+        const da = a && a.created_at ? new Date(a.created_at).getTime() : 0;
+        const db = b && b.created_at ? new Date(b.created_at).getTime() : 0;
+        if (db !== da) return db - da;
+        const ia = typeof a?.id === 'number' ? a.id : parseInt(a?.id ?? 0, 10) || 0;
+        const ib = typeof b?.id === 'number' ? b.id : parseInt(b?.id ?? 0, 10) || 0;
+        return ib - ia;
+      });
+      setLabours(list);
     } catch (err) {
       console.error(err);
     }
@@ -219,7 +304,7 @@ function Dashboard() {
   useEffect(() => {
     fetchLabours();
   // Cards moved to Analytics page; keep base fetch only
-  }, []);
+  }, [filterStartDate, filterEndDate]);
 
   // Filter labours by date range
   useEffect(() => {
@@ -410,14 +495,14 @@ function Dashboard() {
                       <td className="px-6 py-4">
                         {labour.photo_path ? (
                           <img
-                            src={getImageUrl(labour.photo_path)}
+                            src={labour.photo_path ? getImageUrl(labour.photo_path) : noPhoto}
                             alt="Labour"
                             className="w-12 h-12 object-cover rounded shadow border border-gray-200"
-                            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
+                            onError={e => { e.currentTarget.src = noPhoto; }}
                           />
                         ) : (
                           <img
-                            src="https://img.icons8.com/fluency/48/no-image.png"
+                            src={noPhoto}
                             alt="No Photo"
                             className="w-12 h-12 object-cover rounded shadow border border-gray-200"
                           />
@@ -433,11 +518,11 @@ function Dashboard() {
                               src={getImageUrl(labour.adhar_path)}
                               alt="Aadhaar"
                               className="w-12 h-12 object-cover rounded shadow border border-gray-200"
-                              onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
+                              onError={e => { e.currentTarget.src = noPhoto; }}
                             />
                           ) : (
                             <img
-                              src="https://img.icons8.com/fluency/48/no-image.png"
+                              src={noPhoto}
                               alt="No Aadhaar"
                               className="w-12 h-12 object-cover rounded shadow border border-gray-200"
                             />
@@ -476,7 +561,15 @@ function Dashboard() {
                             >
                               View
                             </button>
+                            <button
+                              onClick={() => handleEditClick(labour)}
+                              title="Edit Labour Details"
+                              className="px-2 py-1 rounded-full shadow-sm transition text-blue-600 bg-blue-100 hover:bg-blue-200"
+                            >
+                              <FiEdit2 className="w-4 h-4" />
+                            </button>
                           </td>
+       
                           <td className="px-6 py-4">
                             {labour.army_unit_id ? (
                               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">Assigned</span>
@@ -508,10 +601,10 @@ function Dashboard() {
               <div key={labour.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow flex gap-4">
                 <div className="flex-shrink-0">
                   <img
-                    src={labour.photo_path ? getImageUrl(labour.photo_path) : 'https://img.icons8.com/fluency/48/no-image.png'}
+                    src={labour.photo_path ? getImageUrl(labour.photo_path) : noPhoto}
                     alt="Labour"
                     className="w-16 h-16 object-cover rounded shadow"
-                    onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
+                    onError={e => { e.currentTarget.src = noPhoto; }}
                   />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -538,24 +631,27 @@ function Dashboard() {
                     </div>
                   )}
                   {!isArmyDashboard && (
-                    <div className="mt-2">
+                    <div className="mt-2 flex gap-2">
                       {labour.army_unit_id ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-800 border border-green-200">Assigned</span>
                       ) : null}
+                      <button
+                        onClick={() => handleView(labour)}
+                        disabled={!!labour.army_unit_id}
+                        className={`px-3 py-1 text-xs rounded-full shadow-sm text-white ${labour.army_unit_id ? 'bg-gray-300' : 'bg-blue-600 hover:bg-blue-700'}`}
+                      >
+                        View
+                      </button>
+                      <button
+                        onClick={() => handleEditClick(labour)}
+                        title="Edit Labour Details"
+                        className="px-2 py-1 rounded-full shadow-sm text-blue-600 bg-blue-100 hover:bg-blue-200"
+                      >
+                        <FiEdit2 className="w-4 h-4" />
+                      </button>
                     </div>
                   )}
                 </div>
-                {!isArmyDashboard && (
-                  <div className="flex items-center ml-auto">
-                    <button
-                      onClick={() => handleView(labour)}
-                      disabled={!!labour.army_unit_id}
-                      className={`px-3 py-1 text-xs rounded-full shadow-sm text-white ${labour.army_unit_id ? 'bg-gray-300' : 'bg-blue-600 hover:bg-blue-700'}`}
-                    >
-                      View
-                    </button>
-                  </div>
-                )}
               </div>
             );
           })}
@@ -711,6 +807,59 @@ function Dashboard() {
         </main>
       </div>
       </div>
+       {/* Edit Labour Modal */}
+        {isEditModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center">
+            <form onSubmit={handleEditFormSubmit} className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-lg overflow-y-auto max-h-[90vh] border border-blue-200">
+              <h3 className="text-2xl font-bold mb-6 text-blue-700 text-center">Edit Labour Details</h3>
+              <div className="space-y-4">
+                <label className="block text-sm font-semibold text-gray-700">Name
+                  <input type="text" name="name" value={editForm.name} onChange={handleEditFormChange} className="mt-1 w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-400" required />
+                </label>
+                <label className="block text-sm font-semibold text-gray-700">Contact Number
+                  <input type="text" name="contact_number" value={editForm.contact_number} onChange={handleEditFormChange} className={`mt-1 w-full border rounded-lg p-3 ${editErrors.contact_number ? 'border-red-400 bg-red-50' : 'border-gray-300'}`} required />
+                  {editErrors.contact_number && <span className="text-red-500 text-xs mt-1">{editErrors.contact_number}</span>}
+                </label>
+                <label className="block text-sm font-semibold text-gray-700">Father Name
+                  <input type="text" name="father_name" value={editForm.father_name} onChange={handleEditFormChange} className="mt-1 w-full border border-gray-300 rounded-lg p-3" required />
+                </label>
+                <label className="block text-sm font-semibold text-gray-700">Aadhaar Number
+                  <input type="text" name="aadhaar_number" value={editForm.aadhaar_number} onChange={handleEditFormChange} className={`mt-1 w-full border rounded-lg p-3 ${editErrors.aadhaar_number ? 'border-red-400 bg-red-50' : 'border-gray-300'}`} required />
+                  {editErrors.aadhaar_number && <span className="text-red-500 text-xs mt-1">{editErrors.aadhaar_number}</span>}
+                </label>
+                <label className="block text-sm font-semibold text-gray-700">Bank Name
+                  <input type="text" name="bank_name" value={editForm.bank_name} onChange={handleEditFormChange} className="mt-1 w-full border border-gray-300 rounded-lg p-3" />
+                </label>
+                <label className="block text-sm font-semibold text-gray-700">Account Number
+                  <input type="text" name="bank_account_no" value={editForm.bank_account_no} onChange={handleEditFormChange} className="mt-1 w-full border border-gray-300 rounded-lg p-3" />
+                </label>
+                <label className="block text-sm font-semibold text-gray-700">IFSC Code
+                  <input type="text" name="bank_ifsc_code" value={editForm.bank_ifsc_code} onChange={handleEditFormChange} className="mt-1 w-full border border-gray-300 rounded-lg p-3" />
+                </label>
+                <label className="block text-sm font-semibold text-gray-700">PAN Number
+                  <input type="text" name="pan_number" value={editForm.pan_number} onChange={handleEditFormChange} className={`mt-1 w-full border rounded-lg p-3 ${editErrors.pan_number ? 'border-red-400 bg-red-50' : 'border-gray-300'}`} />
+                  {editErrors.pan_number && <span className="text-red-500 text-xs mt-1">{editErrors.pan_number}</span>}
+                </label>
+                <label className="block text-sm font-semibold text-gray-700">Aadhaar Card Photo
+                  <input type="file" name="adhar_path" accept="image/*" onChange={handleEditFormChange} className="mt-1 w-full border border-gray-300 rounded-lg p-3" />
+                  {editForm.adhar_path && <img src={editForm.adhar_path} alt="Aadhaar Preview" className="mt-2 w-24 h-16 object-cover rounded border" />}
+                </label>
+                <label className="block text-sm font-semibold text-gray-700">PAN Card Photo
+                  <input type="file" name="pan_path" accept="image/*" onChange={handleEditFormChange} className="mt-1 w-full border border-gray-300 rounded-lg p-3" />
+                  {editForm.pan_path && <img src={editForm.pan_path} alt="PAN Preview" className="mt-2 w-24 h-16 object-cover rounded border" />}
+                </label>
+                <label className="block text-sm font-semibold text-gray-700">Labour Photo
+                  <input type="file" name="photo_path" accept="image/*" onChange={handleEditFormChange} className="mt-1 w-full border border-gray-300 rounded-lg p-3" />
+                  {editForm.photo_path && <img src={editForm.photo_path} alt="Labour Preview" className="mt-2 w-24 h-16 object-cover rounded border" />}
+                </label>
+              </div>
+              <div className="flex justify-end gap-3 mt-7">
+                <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-5 py-2 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg font-semibold">Cancel</button>
+                <button type="submit" className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold">Save</button>
+              </div>
+            </form>
+          </div>
+        )}
   <Footer bgColor={themeColors.footerBg} />
     </div>
   );

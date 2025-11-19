@@ -21,6 +21,14 @@ const Attendance = () => {
   const canvasRefs = useRef({});
   const [locationData, setLocationData] = useState({}); // { [labourId]: { lat, lng, accuracy, timestamp } }
 
+  // Date filter state for attendance fetch
+  const todayObj = new Date();
+  const yyyy = todayObj.getFullYear();
+  const mm = String(todayObj.getMonth() + 1).padStart(2, '0');
+  const dd = String(todayObj.getDate()).padStart(2, '0');
+  const todayStr = `${yyyy}-${mm}-${dd}`;
+  const [filterStartDate, setFilterStartDate] = useState(todayStr);
+  const [filterEndDate, setFilterEndDate] = useState(todayStr);
   // Today's date (local) string YYYY-MM-DD used for filtering
   const today = new Date().toISOString().slice(0, 10);
 
@@ -30,25 +38,27 @@ const Attendance = () => {
       try {
         const mobile = localStorage.getItem('mobile_number');
         const unitId = localStorage.getItem('army_unit_id');
+        // Use POST for attendance fetch
         const [labourRes, attendanceRes] = await Promise.all([
           api.get(`/labour/assigned/${mobile}`),
-          api.get(`/attendance/army/${unitId}`)
+          api.post('/attendance/army', {
+            army_unit_id: unitId,
+            startDate: filterStartDate,
+            endDate: filterEndDate
+          })
         ]);
         const labourList = labourRes.data.labours || [];
         setLabours(labourList);
         setCurrentPage(1);
-        // Build attendance map for today
+        // Build attendance map for today (show present/absent for each day in range)
         const list = (attendanceRes.data && attendanceRes.data.attendances) || [];
         const map = {};
         list.forEach(rec => {
           if (!rec || !rec.attendance_date) return;
           const recDate = new Date(rec.attendance_date);
-          // Format to local YYYY-MM-DD (assumes rec.attendance_date is ISO string)
-            const recDateStr = new Date(recDate.getTime() - recDate.getTimezoneOffset()*60000).toISOString().slice(0,10);
-          if (recDateStr === today) {
-            // status 1 => present, 0 => absent; if multiple records for same labour, last one wins
-            map[rec.labour_id] = rec.status === 1;
-          }
+          const recDateStr = new Date(recDate.getTime() - recDate.getTimezoneOffset()*60000).toISOString().slice(0,10);
+          // status 1 => present, 0 => absent; if multiple records for same labour, last one wins
+          map[rec.labour_id] = rec.status === 1;
         });
         setAttendanceMap(map);
       } catch (err) {
@@ -57,7 +67,7 @@ const Attendance = () => {
       }
     };
     fetchData();
-  }, [today]);
+  }, [filterStartDate, filterEndDate]);
 
   const handleOpenCamera = (labourId) => {
     setShowCamera(prev => ({ ...prev, [labourId]: true }));
@@ -232,6 +242,26 @@ const Attendance = () => {
             <h2 className={`text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight ${gradientTextClass} drop-shadow-sm`}>Attendance</h2>
           </div>
           <div className={`mt-2 h-1.5 w-28 ${gradientTextClass.includes('green') ? 'bg-gradient-to-r from-green-600 to-emerald-500' : gradientTextClass.includes('gray') ? 'bg-gradient-to-r from-gray-700 to-gray-500' : 'bg-gradient-to-r from-blue-600 to-sky-500'} rounded-full`}></div>
+        </div>
+        {/* Date Filter Row */}
+        <div className="flex flex-wrap gap-2 items-center mt-2 mb-4">
+          <label className="font-medium text-gray-600">From:</label>
+          <input
+            type="date"
+            className="border rounded px-2 py-1"
+            value={filterStartDate}
+            max={filterEndDate}
+            onChange={e => setFilterStartDate(e.target.value)}
+          />
+          <label className="font-medium text-gray-600 ml-2">To:</label>
+          <input
+            type="date"
+            className="border rounded px-2 py-1"
+            value={filterEndDate}
+            min={filterStartDate}
+            max={todayStr}
+            onChange={e => setFilterEndDate(e.target.value)}
+          />
         </div>
         <div className="bg-white rounded-xl shadow-lg p-4 hidden md:block">
           <table className="min-w-full divide-y divide-gray-200">

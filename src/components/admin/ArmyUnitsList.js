@@ -37,12 +37,12 @@ const ArmyUnitsList = () => {
   const [addSuccess, setAddSuccess] = useState('');
   const LIMIT = 10;
   // Delete handler
-  const handleDeleteArmyUnit = async (unitName) => {
-    if (!window.confirm(`Are you sure you want to delete army unit "${unitName}"?`)) return;
+  const handleDeleteArmyUnit = async (unitId) => {
+    if (!window.confirm(`Are you sure you want to delete army unit "${unitId}"?`)) return;
     setLoading(true);
     try {
       const token = localStorage.getItem('auth_token');
-      await api.delete(`/army-units/name/${encodeURIComponent(unitName)}`, {
+      await api.delete(`/army-units/id/${unitId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       toast.success('Army unit deleted successfully!');
@@ -57,7 +57,11 @@ const ArmyUnitsList = () => {
         setLoading(false);
       }, 500);
     } catch (err) {
-      toast.error('Failed to delete army unit.');
+      let errorMsg = 'Failed to delete army unit.';
+      if (err.response && err.response.data && err.response.data.error) {
+        errorMsg = err.response.data.error;
+      }
+      toast.error(errorMsg);
       setLoading(false);
     }
   };
@@ -130,7 +134,7 @@ const ArmyUnitsList = () => {
       setAddSuccess('Army unit added successfully!');
       toast.success('Army unit added successfully!');
       setShowModal(false);
-      // Add small delay to ensure backend update
+          toast.error(data.error ? data.error : "Failed to delete army unit.");
       setLoading(true);
       setTimeout(async () => {
         try {
@@ -305,7 +309,7 @@ const ArmyUnitsList = () => {
                           <button
                             className="text-red-600 hover:text-red-800 p-2 rounded"
                             title="Delete Army Unit"
-                            onClick={() => handleDeleteArmyUnit(unit.name)}
+                            onClick={() => handleDeleteArmyUnit(unit.id)}
                           >
                             <FiTrash2 size={18} />
                           </button>
@@ -318,7 +322,7 @@ const ArmyUnitsList = () => {
             </div>
             {/* Pagination Controls */}
             {totalPages > 1 && (
-              <div className="flex justify-center items-center mt-4 space-x-2">
+              <div className="flex justify-center items-center mt-4 space-x-2 flex-wrap">
                 <button
                   className="px-3 py-1 rounded bg-blue-100 text-blue-800 font-bold disabled:opacity-50"
                   onClick={() => setPage(page - 1)}
@@ -326,15 +330,42 @@ const ArmyUnitsList = () => {
                 >
                   Prev
                 </button>
-                {Array.from({ length: totalPages }, (_, i) => (
-                  <button
-                    key={i}
-                    className={`px-3 py-1 rounded font-bold ${page === i + 1 ? 'bg-blue-700 text-white' : 'bg-blue-100 text-blue-800'}`}
-                    onClick={() => setPage(i + 1)}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
+                {/* Show first page */}
+                {page > 3 && (
+                  <>
+                    <button
+                      className={`px-3 py-1 rounded font-bold ${page === 1 ? 'bg-blue-700 text-white' : 'bg-blue-100 text-blue-800'}`}
+                      onClick={() => setPage(1)}
+                    >
+                      1
+                    </button>
+                    <span className="px-2">...</span>
+                  </>
+                )}
+                {/* Show up to 2 pages before and after current */}
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(p => p >= page - 2 && p <= page + 2)
+                  .map(p => (
+                    <button
+                      key={p}
+                      className={`px-3 py-1 rounded font-bold ${page === p ? 'bg-blue-700 text-white' : 'bg-blue-100 text-blue-800'}`}
+                      onClick={() => setPage(p)}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                {/* Show last page */}
+                {page < totalPages - 2 && (
+                  <>
+                    <span className="px-2">...</span>
+                    <button
+                      className={`px-3 py-1 rounded font-bold ${page === totalPages ? 'bg-blue-700 text-white' : 'bg-blue-100 text-blue-800'}`}
+                      onClick={() => setPage(totalPages)}
+                    >
+                      {totalPages}
+                    </button>
+                  </>
+                )}
                 <button
                   className="px-3 py-1 rounded bg-blue-100 text-blue-800 font-bold disabled:opacity-50"
                   onClick={() => setPage(page + 1)}

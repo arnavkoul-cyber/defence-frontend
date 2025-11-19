@@ -47,20 +47,29 @@ function LabourForm() {
   const [submitting, setSubmitting] = useState(false);
   const [capturedPhoto, setCapturedPhoto] = useState(null);
   const [showCamera, setShowCamera] = useState(false);
+  const [cameraChoice, setCameraChoice] = useState(null); // 'user' or 'environment'
   const [showBankForm, setShowBankForm] = useState(false);
   const videoRef = React.useRef(null);
   const canvasRef = React.useRef(null);
 
   // Camera logic
-  const handleOpenCamera = async () => {
+  const handleOpenCamera = () => {
+    setCameraChoice(null);
+    setShowCamera('choose'); // show camera choice dialog
+  };
+
+  const startCamera = async (choice) => {
+    setCameraChoice(choice);
     setShowCamera(true);
     setTimeout(async () => {
       if (videoRef.current) {
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          const constraints = { video: { facingMode: choice === 'environment' ? { exact: 'environment' } : 'user' } };
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
           videoRef.current.srcObject = stream;
         } catch (err) {
-          alert('Camera access denied');
+          alert('Camera access denied or not available');
+          setShowCamera(false);
         }
       }
     }, 100);
@@ -98,6 +107,7 @@ function LabourForm() {
   
   const handleCloseCamera = () => {
     setShowCamera(false);
+    setCameraChoice(null);
     if (videoRef.current && videoRef.current.srcObject) {
       videoRef.current.srcObject.getTracks().forEach(track => track.stop());
     }
@@ -179,6 +189,10 @@ function LabourForm() {
   const handleAadharFile = (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
+    if (!['image/jpeg', 'image/png'].includes(file.type)) {
+      setErrors((prev) => ({ ...prev, adhar_path: 'Aadhaar image must be JPEG or PNG.' }));
+      return;
+    }
     if (file.size > MAX_FILE_SIZE) {
       setErrors((prev) => ({ ...prev, adhar_path: `Aadhaar image is too large (max ${MAX_FILE_SIZE_MB}MB)` }));
       return;
@@ -194,6 +208,10 @@ function LabourForm() {
   const handlePanFile = (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
+    if (!['image/jpeg', 'image/png'].includes(file.type)) {
+      setErrors((prev) => ({ ...prev, pan_path: 'PAN card image must be JPEG or PNG.' }));
+      return;
+    }
     if (file.size > MAX_FILE_SIZE) {
       setErrors((prev) => ({ ...prev, pan_path: `PAN card image is too large (max ${MAX_FILE_SIZE_MB}MB)` }));
       return;
@@ -232,8 +250,8 @@ function LabourForm() {
       form.append('name', formData.name);
       form.append('father_name', formData.father_name);
       form.append('sector_id', formData.sector_id);
-  form.append('contact_number', formData.contact_number);
-  form.append('labour_type', formData.labour_type);
+      form.append('contact_number', formData.contact_number);
+      form.append('labour_type', formData.labour_type);
       form.append('aadhaar_number', formData.aadhaar_number);
       if (formData.bank_name) form.append('bank_name', formData.bank_name);
       if (formData.bank_account_no) form.append('bank_account_no', formData.bank_account_no);
@@ -242,6 +260,11 @@ function LabourForm() {
       // Files: convert capturedPhoto (data URL) to File, and append Aadhaar
       if (capturedPhoto) {
         const photoFile = dataURLtoFile(capturedPhoto, 'photo.png');
+        if (photoFile.size > MAX_FILE_SIZE) {
+          setErrors((prev) => ({ ...prev, capturedPhoto: `Captured photo is too large (max ${MAX_FILE_SIZE_MB}MB)` }));
+          setSubmitting(false);
+          return;
+        }
         form.append('photo', photoFile);
       }
       if (formData.adharFile) {
@@ -269,7 +292,7 @@ function LabourForm() {
         name: '',
         father_name: '',
         sector_id: '',
-  labour_type: '',
+        labour_type: '',
         contact_number: '',
         aadhaar_number: '',
         bank_name: '',
@@ -285,7 +308,11 @@ function LabourForm() {
       setShowBankForm(false);
       setErrors({});
     } catch (err) {
-      toast.error(err.response?.data?.message || err.response?.data?.error || 'Error registering labour');
+      if (err.response?.status === 413) {
+        toast.error(`Image must be JPEG/PNG and less than ${MAX_FILE_SIZE_MB}MB`);
+      } else {
+        toast.error(err.response?.data?.message || err.response?.data?.error || 'Error registering labour');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -416,6 +443,7 @@ function LabourForm() {
                           <option value="">Select labour type</option>
                           <option value="Pony">Pony</option>
                           <option value="Porter">Porter</option>
+                          <option value="Pony/Porter">Pony/Porter</option>
                         </select>
                         <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
                           <svg className="w-4 h-4 fill-current text-gray-400" viewBox="0 0 20 20">
@@ -493,6 +521,7 @@ function LabourForm() {
                     </label>
 
                     <div className="bg-white/60 rounded-xl p-6 border-2 border-dashed border-white/40">
+
                       {!showCamera && !capturedPhoto && (
                         <div className="text-center">
                           <div className="w-14 h-14 mx-auto mb-2 bg-blue-100 rounded-full flex items-center justify-center">
@@ -510,7 +539,22 @@ function LabourForm() {
                         </div>
                       )}
 
-                      {showCamera && (
+                      {showCamera === 'choose' && !capturedPhoto && (
+                        <div className="text-center space-y-4">
+                          <div className="mb-2 font-semibold text-gray-700">Choose Camera</div>
+                          <div className="flex justify-center gap-4">
+                            <button type="button" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg transition-all duration-200" onClick={() => startCamera('user')}>
+                              Front Camera
+                            </button>
+                            <button type="button" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg transition-all duration-200" onClick={() => startCamera('environment')}>
+                              Back Camera
+                            </button>
+                          </div>
+                          <button type="button" className="mt-4 text-gray-600 underline" onClick={handleCloseCamera}>Cancel</button>
+                        </div>
+                      )}
+
+                      {showCamera === true && (
                         <div className="text-center space-y-4">
                           <video ref={videoRef} autoPlay className="rounded-xl border-4 border-white shadow-lg w-full max-w-sm mx-auto h-64 object-cover" />
                           <div className="flex justify-center gap-4">

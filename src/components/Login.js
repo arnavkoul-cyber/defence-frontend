@@ -8,6 +8,64 @@ import Header from './Header';
 import Footer from './footer';
 
 export default function Login() {
+  // OTP states
+  const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
+
+  // Send OTP handler
+  const handleSendOtp = async () => {
+    if (!isMobileValid(mobile)) {
+      setTouched(true);
+      toast.error('Please enter a valid 10-digit mobile number.', { position: 'top-center', autoClose: 2000 });
+      return;
+    }
+    if (!captchaVerified) {
+      toast.error('Please verify the captcha!', { position: 'top-center', autoClose: 2000 });
+      return;
+    }
+    setOtpLoading(true);
+    try {
+      const payload = {
+        username: "jkitd-defencelab",
+        password: "Admin@123#",
+        message: "Your OTP is {#var#}. Don’t share this code with anyone for security reasons. JKGOVT",
+        senderId: "JKGOVT",
+        mobileNumber: mobile,
+        secureKey: "d2e842de-5d91-40dd-8934-5b3490319dce",
+        templateid: "1007846228194565779"
+      };
+      await api.post('/sms/otp', payload);
+      toast.success('OTP sent successfully!', { position: 'top-center', autoClose: 2000 });
+      setOtpSent(true);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to send OTP', { position: 'top-center', autoClose: 2000 });
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  // Verify OTP handler
+  const handleVerifyOtp = async () => {
+    if (!otp || otp.length !== 6) {
+      toast.error('Please enter the 6-digit OTP.', { position: 'top-center', autoClose: 2000 });
+      return;
+    }
+    setOtpLoading(true);
+    try {
+      await api.post('/sms/verify-otp', { mobileNumber: mobile, otp });
+      toast.success('OTP verified!', { position: 'top-center', autoClose: 2000 });
+      setOtpVerified(true);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'OTP verification failed', { position: 'top-center', autoClose: 2000 });
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+  const [showSectorSelect, setShowSectorSelect] = useState(false);
+  const [sectorOptions, setSectorOptions] = useState([]);
+  const [selectedSectorId, setSelectedSectorId] = useState('');
   const [mobile, setMobile] = useState('');
   const [captchaVerified, setCaptchaVerified] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -53,21 +111,39 @@ export default function Login() {
 
     try {
       setLoading(true);
-      // Clear all previous localStorage data before new login
       localStorage.clear();
-  // Map dropdown value to correct role value
-  let roleValue = '';
-  if (userType === 'Director of Defence Labour') roleValue = 'defence officer';
-  else if (userType === 'Army Officer') roleValue = 'army officer';
-  else if (userType === 'Admin') roleValue = 'admin';
-  const res = await api.post('/auth/login', { mobile_number: mobile, user_type: roleValue });
+      let roleValue = '';
+      if (userType === 'Director of Defence Labour') roleValue = 'defence officer';
+      else if (userType === 'Army Officer') roleValue = 'army officer';
+      else if (userType === 'Admin') roleValue = 'admin';
+if (userType === 'Director of Defence Labour'){
+  localStorage.setItem('role', 'defence officer');
+}
+      // Only send sector_id if sector selection modal is open (multiple sectors found)
+      let loginPayload = { mobile_number: mobile, user_type: roleValue };
+      if (showSectorSelect && selectedSectorId) {
+        loginPayload.sector_id = selectedSectorId;
+      }
+      console.log('LOGIN PAYLOAD:', loginPayload); // Debug
+      const res = await api.post('/auth/login', loginPayload);
+
+      // Only show sector modal if sector_id is not already set and response requests it
+      if ((!loginPayload.sector_id) && res.data && res.data.message && res.data.message.includes('Multiple sectors found')) {
+        setSectorOptions(res.data.sectors || []);
+        setShowSectorSelect(true);
+        setLoading(false);
+        return;
+      }
+
+      // Success: close sector modal if open and reset selectedSectorId
+      setShowSectorSelect(false);
+      setSelectedSectorId('');
 
       // Admin route
       if ((userType === 'Admin' || res?.data?.user?.role === 'admin')) {
         localStorage.setItem('role', 'admin');
         localStorage.setItem('userType', 'admin');
         localStorage.setItem('auth_token', res.data.token);
-        // Store sector_id if available
         if (res.data.user && res.data.user.sector_id) {
           localStorage.setItem('sector_id', res.data.user.sector_id);
         }
@@ -77,13 +153,17 @@ export default function Login() {
       }
 
       // Officer route
-      localStorage.setItem('role', 'officer');
+      // Set role based on user type, don't override the role set earlier
+      if (userType === 'Army Officer') {
+        localStorage.setItem('role', 'officer');
+      }
+      // Note: Defence officer role is already set above at line 118-120
+      
       localStorage.setItem('userType', 'officer');
       localStorage.setItem('officer_id', res.data.officer_id);
       localStorage.setItem('userId', res.data.user.id);
       localStorage.setItem('army_unit_id', res.data.user.army_unit_id);
       localStorage.setItem('mobile_number', res.data.user.mobile_number);
-      // Store sector_id if available
       if (res.data.user && res.data.user.sector_id) {
         localStorage.setItem('sector_id', res.data.user.sector_id);
       }
@@ -107,6 +187,31 @@ export default function Login() {
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-gradient-to-b from-white via-blue-50 to-blue-100">
+      {/* Sector selection modal */}
+      {showSectorSelect && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 min-w-[300px]">
+            <h3 className="text-lg font-bold mb-4">Multiple sectors are found linked to this mobile number</h3>
+            <select
+              className="w-full mb-4 p-2 border rounded"
+              value={selectedSectorId}
+              onChange={e => setSelectedSectorId(e.target.value)}
+            >
+              <option value="">-- Select Sector --</option>
+              {sectorOptions.map(s => (
+                <option key={s.sector_id} value={s.sector_id}>{s.sector_name}</option>
+              ))}
+            </select>
+            <button
+              className="bg-blue-600 text-white px-4 py-2 rounded w-full"
+              disabled={!selectedSectorId || loading}
+              onClick={async () => {
+                await handleLogin();
+              }}
+            >{loading ? 'Logging in...' : 'Continue'}</button>
+          </div>
+        </div>
+      )}
       {/* Decorative background */}
       <div
         aria-hidden
@@ -211,28 +316,60 @@ export default function Login() {
                   <ReCAPTCHA sitekey={SITE_KEY} onChange={handleCaptcha} />
                 </div>
 
-                {/* Submit */}
-                <button
-                  type="button"
-                  onClick={handleLogin}
-                  disabled={!isMobileValid(mobile) || !captchaVerified || loading}
-                  className={`group relative inline-flex w-full items-center justify-center gap-2 rounded-lg sm:rounded-xl px-4 sm:px-6 py-2.5 sm:py-3.5 text-base sm:text-lg font-bold transition-all shadow-lg ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-700 text-white hover:bg-blue-800 active:scale-[0.99]'} `}
-                >
-                  {loading ? (
-                    <span className="flex items-center text-sm sm:text-base">
-                      <svg className="-ml-1 mr-3 h-4 w-4 sm:h-5 sm:w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Logging in...
-                    </span>
-                  ) : (
-                    <>
-                      <span>Login</span>
-                      <svg className="h-4 w-4 sm:h-5 sm:w-5 transition-transform group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
-                    </>
-                  )}
-                </button>
+                {/* OTP Flow */}
+                {!otpSent && (
+                  <button
+                    type="button"
+                    onClick={handleSendOtp}
+                    disabled={!isMobileValid(mobile) || !captchaVerified || otpLoading}
+                    className={`group relative inline-flex w-full items-center justify-center gap-2 rounded-lg sm:rounded-xl px-4 sm:px-6 py-2.5 sm:py-3.5 text-base sm:text-lg font-bold transition-all shadow-lg ${otpLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-700 text-white hover:bg-blue-800 active:scale-[0.99]'}`}
+                  >
+                    {otpLoading ? 'Sending OTP...' : 'Send OTP'}
+                  </button>
+                )}
+
+                {otpSent && !otpVerified && (
+                  <>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={otp}
+                      onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
+                      placeholder="Enter OTP"
+                      className="w-full border border-blue-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 mt-3"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleVerifyOtp}
+                      disabled={otpLoading}
+                      className={`group relative inline-flex w-full items-center justify-center gap-2 rounded-lg sm:rounded-xl px-4 sm:px-6 py-2.5 sm:py-3.5 text-base sm:text-lg font-bold transition-all shadow-lg border-2 border-blue-700 ${otpLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 active:scale-[0.99]'} `}
+                      style={{ boxShadow: '0 2px 8px rgba(30,64,175,0.12)' }}
+                    >
+                      {otpLoading ? (
+                        <span className="flex items-center text-sm sm:text-base">
+                          <svg className="-ml-1 mr-3 h-4 w-4 sm:h-5 sm:w-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Verifying...
+                        </span>
+                      ) : (
+                        <span className="tracking-wide font-bold text-lg">Verify OTP</span>
+                      )}
+                    </button>
+                  </>
+                )}
+
+                {otpVerified && (
+                  <button
+                    type="button"
+                    onClick={handleLogin}
+                    disabled={loading}
+                    className={`group relative inline-flex w-full items-center justify-center gap-2 rounded-lg sm:rounded-xl px-4 sm:px-6 py-2.5 sm:py-3.5 text-base sm:text-lg font-bold transition-all shadow-lg ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-700 text-white hover:bg-blue-800 active:scale-[0.99]'}`}
+                  >
+                    {loading ? 'Logging in...' : 'Login'}
+                  </button>
+                )}
 
                 <p className="text-center text-[10px] sm:text-xs text-gray-500">Secure Login • Government Portal</p>
               </div>

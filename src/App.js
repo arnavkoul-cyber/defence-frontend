@@ -12,9 +12,11 @@ import 'react-toastify/dist/ReactToastify.css';
 import UsersList from './components/admin/UsersList';
 import SectorList from './components/admin/SectorList';
 import ArmyUnitsList from './components/admin/ArmyUnitsList';
+import ArmyUnitsBySector from './components/ArmyUnitsBySector';
+import SectorUnitsPersonnel from './components/SectorUnitsPersonnel';
 import LaboursList from './components/admin/LaboursList';
 
-// Check if user is authenticated
+// --- auth helpers ---
 const isAuthenticated = () => {
   return !!(
     localStorage.getItem('auth_token') ||
@@ -23,88 +25,82 @@ const isAuthenticated = () => {
   );
 };
 
-// Check if user is admin
 const isAdminUser = () => {
-  return localStorage.getItem('role') === 'admin' || localStorage.getItem('userType') === 'admin';
+  return (
+    localStorage.getItem('role') === 'admin' ||
+    localStorage.getItem('userType') === 'admin'
+  );
 };
 
-// Wrapper for protected routes
+// --- route guards ---
 const ProtectedRoute = ({ children }) => {
-  if (!isAuthenticated()) {
-    return <Navigate to="/login" replace />;
-  }
+  if (!isAuthenticated()) return <Navigate to="/login" replace />;
   return children;
 };
 
-// Admin-only route wrapper
 const AdminRoute = ({ children }) => {
-  if (!isAuthenticated()) {
-    return <Navigate to="/login" replace />;
-  }
-  if (!isAdminUser()) {
-    return <Navigate to="/dashboard" replace />;
-  }
+  if (!isAuthenticated()) return <Navigate to="/login" replace />;
+  if (!isAdminUser()) return <Navigate to="/dashboard" replace />;
   return children;
 };
 
-// Officer-only route wrapper
 const OfficerRoute = ({ children }) => {
-  if (!isAuthenticated()) {
-    return <Navigate to="/login" replace />;
-  }
-  if (isAdminUser()) {
-    return <Navigate to="/admin/users" replace />;
-  }
+  if (!isAuthenticated()) return <Navigate to="/login" replace />;
+  if (isAdminUser()) return <Navigate to="/admin/users" replace />;
   return children;
 };
 
 function App() {
   const [isAdmin, setIsAdmin] = useState(isAdminUser());
 
-  // Listen for storage changes (login/logout events)
   useEffect(() => {
-    const handleStorageChange = () => {
-      setIsAdmin(isAdminUser());
-    };
-
-    // Check on mount and when localStorage changes
+    const handleStorageChange = () => setIsAdmin(isAdminUser());
     setIsAdmin(isAdminUser());
     window.addEventListener('storage', handleStorageChange);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   return (
     <Router>
-      <ToastContainer position="top-center" autoClose={4000} hideProgressBar={false} newestOnTop closeOnClick pauseOnFocusLoss draggable pauseOnHover />
+      <ToastContainer
+        position="top-center"
+        autoClose={4000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
       <Routes>
+        {/* Public */}
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
         <Route path="/labourForm" element={<LabourForm />} />
-        
-        {/* Admin Routes */}
+
+        {/* Admin */}
         <Route path="/admin/users" element={<AdminRoute><UsersList /></AdminRoute>} />
         <Route path="/admin/labours" element={<AdminRoute><LaboursList /></AdminRoute>} />
         <Route path="/admin/sectors" element={<AdminRoute><SectorList /></AdminRoute>} />
         <Route path="/admin/army-units" element={<AdminRoute><ArmyUnitsList /></AdminRoute>} />
-        
-        {/* Officer Routes */}
-        <Route path="/dashboard" element={<OfficerRoute><Dashboard /></OfficerRoute>} />
-        <Route path="/unitData" element={<OfficerRoute><UnitData /></OfficerRoute>} />
-        <Route path="/analytics" element={<OfficerRoute><Analytics /></OfficerRoute>} />
-        <Route path="/attendance" element={<OfficerRoute><Attendance /></OfficerRoute>} />
-        <Route path="/attendanceDetails" element={<OfficerRoute><AttendanceDetails /></OfficerRoute>} />
-        
-        {/* Catch-all redirect based on auth status */}
-        <Route 
-          path="*" 
+
+        {/* Officer */}
+  <Route path="/dashboard" element={<OfficerRoute><Dashboard /></OfficerRoute>} />
+  <Route path="/unitData" element={<OfficerRoute><UnitData /></OfficerRoute>} />
+  <Route path="/analytics" element={<OfficerRoute><Analytics /></OfficerRoute>} />
+  <Route path="/attendance" element={<OfficerRoute><Attendance /></OfficerRoute>} />
+  <Route path="/attendanceDetails" element={<OfficerRoute><AttendanceDetails /></OfficerRoute>} />
+  <Route path="/army-units-by-sector" element={<OfficerRoute><ArmyUnitsBySector /></OfficerRoute>} />
+  <Route path="/sector-units-personnel" element={<OfficerRoute><SectorUnitsPersonnel /></OfficerRoute>} />
+
+        {/* Catch-all */}
+        <Route
+          path="*"
           element={
-            isAuthenticated() 
+            isAuthenticated()
               ? (isAdmin ? <Navigate to="/admin/users" replace /> : <Navigate to="/dashboard" replace />)
               : <Navigate to="/login" replace />
-          } 
+          }
         />
       </Routes>
     </Router>

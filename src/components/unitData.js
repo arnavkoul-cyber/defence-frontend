@@ -15,7 +15,18 @@ function UnitData() {
   const entriesPerPage = 5;
 
   useEffect(() => {
-    api.get('/labour/' + localStorage.getItem('userId'))
+    // Get current month start and today
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const startDate = `${yyyy}-${mm}-01`;
+    const endDate = `${yyyy}-${mm}-${dd}`;
+    api.post('/labour/by-officer', {
+      officer_id: localStorage.getItem('userId'),
+      startDate,
+      endDate
+    })
       .then(res => { setLabours(res.data.labours || []); setCurrentPage(1); })
       .catch(err => console.error('Error fetching labours:', err));
 

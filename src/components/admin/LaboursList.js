@@ -1,4 +1,14 @@
-import React, { useState, useEffect } from 'react';
+// Helper to get YYYY-MM-DD string
+function formatDateStr(date) {
+  if (!(date instanceof Date)) return '';
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+import React, { useEffect, useMemo, useState } from 'react';
+import noPhoto from '../../assets/no_photo.png';
+import whiteEmblem from '../../assets/white_emb.jpeg';
 import api, { getImageUrl } from '../../api/api';
 import Header from '../Header';
 import Footer from '../footer';
@@ -9,31 +19,86 @@ import 'react-toastify/dist/ReactToastify.css';
 
 const LABOURS_PER_PAGE = 10;
 
-const LaboursList = () => {
-  // Responsive: show sidebar open arrow when closed on mobile
-  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-  useEffect(() => {
-    const handleResize = () => setWindowWidth(window.innerWidth);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+function LaboursList() {
+  // SSR-safe window width
+  const initialWidth = typeof window !== 'undefined' ? window.innerWidth : 1024;
+  const [windowWidth, setWindowWidth] = useState(initialWidth);
+
   // Sidebar responsive state
-  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 768);
+  const [sidebarOpen, setSidebarOpen] = useState(initialWidth >= 768);
   const handleSidebarToggle = () => setSidebarOpen((prev) => !prev);
+
+  // Data states
+  const [labours, setLabours] = useState([]);
+  const [filteredLabours, setFilteredLabours] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // UI states
+  const [page, setPage] = useState(1);
+  const [selectedLabour, setSelectedLabour] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+
+	// ...existing code...
+
+  // Set default date filters to start of month and today immediately
+  const today = new Date();
+  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const [filterStartDate, setFilterStartDate] = useState(formatDateStr(startOfMonth));
+  const [filterEndDate, setFilterEndDate] = useState(formatDateStr(today));
+  const [sectorSearch, setSectorSearch] = useState('');
+  const [armyUnitSearch, setArmyUnitSearch] = useState('');
+  const [nameSearch, setNameSearch] = useState('');
+
+  // Resize handling (single source of truth)
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     const handleResize = () => {
-      if (window.innerWidth < 768) setSidebarOpen(false);
-      else setSidebarOpen(true);
+      const w = window.innerWidth;
+      setWindowWidth(w);
+      // Auto-close on small screens, open on large
+      setSidebarOpen((prev) => (w < 768 ? false : true));
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-  // Sector search state
-  const [sectorSearch, setSectorSearch] = useState('');
 
-  // Delete handler
+
+	// ...existing code...
+
+
+
+  // Fetch data when date filters change
+  useEffect(() => {
+    fetchLabours();
+  }, [filterStartDate, filterEndDate]);
+
+  const fetchLabours = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('auth_token');
+      const res = await api.post(
+        '/labour/all/admin',
+        {
+          startDate: filterStartDate,
+          endDate: filterEndDate,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      const list = res?.data?.data ?? [];
+      setLabours(Array.isArray(list) ? list : []);
+    } catch (err) {
+      setError('Failed to fetch labourers');
+      toast.error('Failed to fetch labourers');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleDeleteLabour = async (labourId) => {
-    if (!window.confirm('Are you sure you want to delete this labourer?')) return;
     setLoading(true);
     try {
       const token = localStorage.getItem('auth_token');
@@ -41,7 +106,7 @@ const LaboursList = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       toast.success('Labourer deleted successfully!');
-      // Add small delay to ensure backend update
+      // ensure backend commit reflected
       setTimeout(async () => {
         await fetchLabours();
         setLoading(false);
@@ -49,73 +114,6 @@ const LaboursList = () => {
     } catch (err) {
       const apiError = err?.response?.data?.error;
       toast.error(apiError || 'Failed to delete labourer.');
-      setLoading(false);
-    }
-  };
-  const [labours, setLabours] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [page, setPage] = useState(1);
-  const [selectedLabour, setSelectedLabour] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  
-  // Date filter state
-  const [filterStartDate, setFilterStartDate] = useState('');
-  const [filterEndDate, setFilterEndDate] = useState('');
-  const [filteredLabours, setFilteredLabours] = useState([]);
-
-  useEffect(() => {
-    fetchLabours();
-  }, []);
-
-  // Filter labours by date range
-  useEffect(() => {
-    let filtered = labours;
-    // Date filter
-    if (filterStartDate || filterEndDate) {
-      filtered = filtered.filter((labour) => {
-        if (!labour.created_at) return false;
-        const createdDate = new Date(labour.created_at);
-        const start = filterStartDate ? new Date(filterStartDate) : null;
-        const end = filterEndDate ? new Date(filterEndDate) : null;
-        if (start) start.setHours(0, 0, 0, 0);
-        if (end) end.setHours(23, 59, 59, 999);
-        createdDate.setHours(0, 0, 0, 0);
-        if (start && end) {
-          return createdDate >= start && createdDate <= end;
-        } else if (start) {
-          return createdDate >= start;
-        } else if (end) {
-          return createdDate <= end;
-        }
-        return true;
-      });
-    }
-    // Sector search filter
-    if (sectorSearch.trim()) {
-      filtered = filtered.filter(labour =>
-        (labour.sector_name || '').toLowerCase().includes(sectorSearch.trim().toLowerCase())
-      );
-    }
-    setFilteredLabours(filtered);
-    setPage(1); // Reset to first page when filter changes
-  }, [labours, filterStartDate, filterEndDate, sectorSearch]);
-
-  const fetchLabours = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const token = localStorage.getItem('auth_token');
-      const res = await api.get('/labour/all/admin', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      setLabours(res.data.data || []);
-    } catch (err) {
-      setError('Failed to fetch labourers');
-      toast.error('Failed to fetch labourers');
-    } finally {
       setLoading(false);
     }
   };
@@ -132,35 +130,95 @@ const LaboursList = () => {
 
   const formatDate = (dateString) => {
     if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+    const d = new Date(dateString);
+    if (Number.isNaN(d.getTime())) return '-';
+    return d.toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
   const capitalize = (str) => {
-    if (!str || typeof str !== 'string') return str;
+    if (!str || typeof str !== 'string') return str ?? '-';
     return str.charAt(0).toUpperCase() + str.slice(1);
   };
 
-  const totalPages = Math.ceil(filteredLabours.length / LABOURS_PER_PAGE);
-  const paginatedLabours = filteredLabours.slice((page - 1) * LABOURS_PER_PAGE, page * LABOURS_PER_PAGE);
+  // Filtering
+  useEffect(() => {
+    let filtered = labours;
+
+    // Date filter
+    if (filterStartDate || filterEndDate) {
+      filtered = filtered.filter((labour) => {
+        if (!labour?.created_at) return false;
+        const createdDate = new Date(labour.created_at);
+        if (Number.isNaN(createdDate.getTime())) return false;
+
+        const start = filterStartDate ? new Date(filterStartDate) : null;
+        const end = filterEndDate ? new Date(filterEndDate) : null;
+        if (start) start.setHours(0, 0, 0, 0);
+        if (end) end.setHours(23, 59, 59, 999);
+        createdDate.setHours(0, 0, 0, 0);
+
+        if (start && end) return createdDate >= start && createdDate <= end;
+        if (start) return createdDate >= start;
+        if (end) return createdDate <= end;
+        return true;
+      });
+    }
+
+    // Name search
+    if (nameSearch.trim()) {
+      const needle = nameSearch.trim().toLowerCase();
+      filtered = filtered.filter((l) => (l?.name || '').toLowerCase().includes(needle));
+    }
+
+    // Sector search
+    if (sectorSearch.trim()) {
+      const needle = sectorSearch.trim().toLowerCase();
+      filtered = filtered.filter((l) => (l?.sector_name || '').toLowerCase().includes(needle));
+    }
+
+    // Army Unit search
+    if (armyUnitSearch.trim()) {
+      const needle = armyUnitSearch.trim().toLowerCase();
+      filtered = filtered.filter((l) => (l?.army_unit_name || '').toLowerCase().includes(needle));
+    }
+
+    setFilteredLabours(filtered);
+    setPage(1); // reset when filters change
+  }, [labours, filterStartDate, filterEndDate, nameSearch, sectorSearch, armyUnitSearch]);
+
+  // Pagination calculated from filtered results
+  const totalPages = useMemo(
+    () => Math.ceil((filteredLabours?.length || 0) / LABOURS_PER_PAGE) || 1,
+    [filteredLabours]
+  );
+
+  const paginatedLabours = useMemo(() => {
+    const start = (page - 1) * LABOURS_PER_PAGE;
+    const end = start + LABOURS_PER_PAGE;
+    return filteredLabours.slice(start, end);
+  }, [filteredLabours, page]);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 relative">
       {/* White emblem watermark background */}
-      <div 
+      <div
         className="fixed inset-0 bg-center bg-no-repeat opacity-[0.12] pointer-events-none z-[1]"
-        style={{
-          backgroundImage: `url(${require('../../assets/white_emb.jpeg')})`,
-          backgroundSize: '45%',
-        }}
+        style={{ backgroundImage: `url(${whiteEmblem})`, backgroundSize: '45%' }}
         aria-hidden="true"
-      ></div>
-      
+      />
+
       <div className="relative z-10">
-        <ToastContainer position="top-right" autoClose={2000} hideProgressBar={false} newestOnTop closeOnClick pauseOnFocusLoss draggable pauseOnHover />
+        <ToastContainer
+          position="top-right"
+          autoClose={2000}
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+        />
+
         <Header variant="blue" bgColor="#0b50a2">
           {/* Hamburger for mobile */}
           <button
@@ -169,12 +227,14 @@ const LaboursList = () => {
             className="md:hidden absolute left-2 top-2 z-50 p-2 rounded-md bg-blue-700 text-white shadow"
             onClick={handleSidebarToggle}
           >
-            <span style={{fontSize: '1.5rem'}}>&#9776;</span>
+            <span style={{ fontSize: '1.5rem' }}>&#9776;</span>
           </button>
         </Header>
+
         <div className="flex flex-1 relative">
           {/* Sidebar overlays on mobile, pushes on desktop */}
           <AdminSidebar bgColor="#0b50a2" isOpen={sidebarOpen} onToggle={handleSidebarToggle} />
+
           {/* Overlay for mobile sidebar */}
           {sidebarOpen && windowWidth < 768 && (
             <div
@@ -183,6 +243,7 @@ const LaboursList = () => {
               style={{ cursor: 'pointer' }}
             />
           )}
+
           {/* Show sidebar open arrow on mobile when sidebar is closed */}
           {!sidebarOpen && windowWidth < 768 && (
             <button
@@ -191,9 +252,10 @@ const LaboursList = () => {
               onClick={handleSidebarToggle}
               className="fixed left-2 top-20 z-50 p-2 rounded-md bg-blue-700 text-white shadow"
             >
-              <span style={{fontSize: '1.5rem'}}>&#8250;</span>
+              <span style={{ fontSize: '1.5rem' }}>&#8250;</span>
             </button>
           )}
+
           <main
             className="flex-1 p-6"
             style={{
@@ -226,13 +288,13 @@ const LaboursList = () => {
                   <div className="text-right">
                     <p className="text-gray-600 text-sm font-medium">Assigned</p>
                     <p className="text-2xl font-bold text-green-600">
-                      {labours.filter(l => l.army_unit_id).length}
+                      {labours.filter((l) => l.army_unit_id).length}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-gray-600 text-sm font-medium">Unassigned</p>
                     <p className="text-2xl font-bold text-orange-600">
-                      {labours.filter(l => !l.army_unit_id).length}
+                      {labours.filter((l) => !l.army_unit_id).length}
                     </p>
                   </div>
                 </div>
@@ -271,7 +333,9 @@ const LaboursList = () => {
                     </button>
                   )}
                   <div className="ml-auto text-sm text-gray-600">
-                    Showing <span className="font-bold text-blue-600">{filteredLabours.length}</span> of <span className="font-bold">{labours.length}</span> labourers
+                    Showing{' '}
+                    <span className="font-bold text-blue-600">{filteredLabours.length}</span> of{' '}
+                    <span className="font-bold">{labours.length}</span> labourers
                   </div>
                 </div>
               </div>
@@ -279,16 +343,38 @@ const LaboursList = () => {
               {/* Table */}
               <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
                 <div className="overflow-x-auto">
-                  {/* Sector search bar above table */}
-                  <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border-b border-blue-200">
-                    <label className="font-semibold text-blue-700">Search Sector:</label>
-                    <input
-                      type="text"
-                      value={sectorSearch}
-                      onChange={e => setSectorSearch(e.target.value)}
-                      placeholder="Type sector name..."
-                      className="border rounded px-2 py-1 text-sm w-48"
-                    />
+                  {/* Search bars above table */}
+                  <div className="flex flex-wrap items-center gap-4 px-4 py-2 bg-blue-50 border-b border-blue-200">
+                    <div className="flex items-center gap-2">
+                      <label className="font-semibold text-blue-700">Search Name:</label>
+                      <input
+                        type="text"
+                        value={nameSearch}
+                        onChange={(e) => setNameSearch(e.target.value)}
+                        placeholder="Type name..."
+                        className="border rounded px-2 py-1 text-sm w-48"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="font-semibold text-blue-700">Search Sector:</label>
+                      <input
+                        type="text"
+                        value={sectorSearch}
+                        onChange={(e) => setSectorSearch(e.target.value)}
+                        placeholder="Type sector name..."
+                        className="border rounded px-2 py-1 text-sm w-48"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="font-semibold text-blue-700">Search Army Unit:</label>
+                      <input
+                        type="text"
+                        value={armyUnitSearch}
+                        onChange={(e) => setArmyUnitSearch(e.target.value)}
+                        placeholder="Type army unit name..."
+                        className="border rounded px-2 py-1 text-sm w-48"
+                      />
+                    </div>
                   </div>
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-blue-600 text-white">
@@ -324,11 +410,11 @@ const LaboursList = () => {
                         </tr>
                       ) : filteredLabours.length === 0 ? (
                         <tr>
-                          <td colSpan={9} className="text-center py-8 text-gray-500 font-semibold">No labourers found for the selected date range.</td>
+                          <td colSpan={9} className="text-center py-8 text-gray-500 font-semibold">No labourers found for the selected filters.</td>
                         </tr>
                       ) : (
                         paginatedLabours.map((labour, idx) => (
-                          <tr key={labour.id} className="transition-colors duration-150 hover:bg-blue-50">
+                          <tr key={labour.id ?? idx} className="transition-colors duration-150 hover:bg-blue-50">
                             <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                               {(page - 1) * LABOURS_PER_PAGE + idx + 1}
                             </td>
@@ -422,15 +508,11 @@ const LaboursList = () => {
                           </button>
                           {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                             let pageNum;
-                            if (totalPages <= 5) {
-                              pageNum = i + 1;
-                            } else if (page <= 3) {
-                              pageNum = i + 1;
-                            } else if (page >= totalPages - 2) {
-                              pageNum = totalPages - 4 + i;
-                            } else {
-                              pageNum = page - 2 + i;
-                            }
+                            if (totalPages <= 5) pageNum = i + 1;
+                            else if (page <= 3) pageNum = i + 1;
+                            else if (page >= totalPages - 2) pageNum = totalPages - 4 + i;
+                            else pageNum = page - 2 + i;
+
                             return (
                               <button
                                 key={pageNum}
@@ -476,7 +558,7 @@ const LaboursList = () => {
                 &times;
               </button>
             </div>
-            
+
             <div className="p-6 space-y-6">
               {/* Personal Information */}
               <div className="border-b pb-4">
@@ -582,12 +664,16 @@ const LaboursList = () => {
                         src={getImageUrl(selectedLabour.photo_path)}
                         alt="Labour Photo"
                         className="w-full h-32 object-cover rounded-lg border border-gray-300"
-                        onError={(e) => { e.currentTarget.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
+                        onError={(e) => {
+                          e.currentTarget.src = noPhoto;
+                        }}
                       />
                     ) : (
-                      <div className="w-full h-32 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400">
-                        No Photo
-                      </div>
+                      <img
+                        src={noPhoto}
+                        alt="No Photo"
+                        className="w-full h-32 object-cover rounded-lg border border-gray-300"
+                      />
                     )}
                   </div>
                   <div>
@@ -603,7 +689,9 @@ const LaboursList = () => {
                           src={getImageUrl(selectedLabour.adhar_path)}
                           alt="Aadhaar"
                           className="w-full h-32 object-cover rounded-lg border border-gray-300 hover:opacity-80 transition-opacity"
-                          onError={(e) => { e.currentTarget.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
+                          onError={(e) => {
+                            e.currentTarget.src = noPhoto;
+                          }}
                         />
                       </a>
                     ) : (
@@ -625,7 +713,9 @@ const LaboursList = () => {
                           src={getImageUrl(selectedLabour.pan_path)}
                           alt="PAN"
                           className="w-full h-32 object-cover rounded-lg border border-gray-300 hover:opacity-80 transition-opacity"
-                          onError={(e) => { e.currentTarget.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
+                          onError={(e) => {
+                            e.currentTarget.src = noPhoto;
+                          }}
                         />
                       </a>
                     ) : (
@@ -638,7 +728,7 @@ const LaboursList = () => {
               </div>
 
               {/* Remarks */}
-              {selectedLabour.remarks && (
+              {selectedLabour?.remarks && (
                 <div>
                   <h4 className="text-lg font-bold text-gray-800 mb-2">Remarks</h4>
                   <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedLabour.remarks}</p>
@@ -661,6 +751,6 @@ const LaboursList = () => {
       <Footer />
     </div>
   );
-};
+}
 
 export default LaboursList;

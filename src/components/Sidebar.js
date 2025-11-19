@@ -15,6 +15,8 @@ function Sidebar({ bgColor, isOpen = true, onToggle }) {
     dashboardTitle = "Army Dashboard";
   }
   const isAdmin = localStorage.getItem('role') === 'admin';
+  // const user = JSON.parse(localStorage.getItem('user'));
+  const isDefenceOfficer = localStorage.getItem('role') === 'defence officer';
   
   const linkClasses = (path) => {
     const isActive = location.pathname === path;
@@ -107,6 +109,20 @@ function Sidebar({ bgColor, isOpen = true, onToggle }) {
                 <Link to="/attendanceDetails" className={linkClasses('/attendanceDetails')} onClick={() => window.innerWidth < 768 && onToggle()}>
                   <FiFileText />
                   <span>Attendance Details</span>
+                </Link>
+              )}
+              {/* Defence Officer: Army Units By Sector */}
+              {isDefenceOfficer && (
+                <Link to="/army-units-by-sector" className={linkClasses('/army-units-by-sector')} onClick={() => window.innerWidth < 768 && onToggle()}>
+                  <FiDatabase />
+                  <span>Army Units By Sector</span>
+                </Link>
+              )}
+              {/* Defence Officer: Sector Units & Personnel */}
+              {isDefenceOfficer && (
+                <Link to="/sector-units-personnel" className={linkClasses('/sector-units-personnel')} onClick={() => window.innerWidth < 768 && onToggle()}>
+                  <FiUsers />
+                  <span>Units & Personnel</span>
                 </Link>
               )}
             </>

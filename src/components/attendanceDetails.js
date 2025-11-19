@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import noPhoto from '../assets/no_photo.png';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import Footer from './footer';
@@ -54,7 +55,18 @@ const AttendanceDetails = () => {
         } else if (filterLabourId) {
           res = await api.get(`/attendance/labour/${filterLabourId}`);
         } else {
-          res = await api.get(`/attendance/army/${army_unit_id}`);
+          // Use POST for full range (current month by default)
+          const today = new Date();
+          const yyyy = today.getFullYear();
+          const mm = String(today.getMonth() + 1).padStart(2, '0');
+          const dd = String(today.getDate()).padStart(2, '0');
+          const startDate = `${yyyy}-${mm}-01`;
+          const endDate = `${yyyy}-${mm}-${dd}`;
+          res = await api.post('/attendance/army', {
+            army_unit_id,
+            startDate,
+            endDate
+          });
         }
         setAttendances(res.data.attendances || []);
         console.log(res.data.attendances);
@@ -187,22 +199,12 @@ const AttendanceDetails = () => {
                     <td className="px-4 py-2">{formatDate(a.attendance_date)}</td>
                     <td className="px-4 py-2">{formatTime(a.attendance_time)}</td>
                     <td className="px-4 py-2">
-                      {a.photo_path ? (
                         <img
-                          src={a.photo_path.startsWith('http')
-                            ? a.photo_path
-                            : getImageUrl(a.photo_path)}
+                          src={a.photo_path ? (a.photo_path.startsWith('http') ? a.photo_path : getImageUrl(a.photo_path)) : noPhoto}
                           alt="Attendance"
                           className="w-16 h-16 object-cover rounded shadow border border-gray-200"
-                          onError={e => { e.target.onerror = null; e.target.src = 'https://img.icons8.com/fluency/48/no-image.png'; }}
+                          onError={e => { e.currentTarget.src = noPhoto; }}
                         />
-                      ) : (
-                        <img
-                          src="https://img.icons8.com/fluency/48/no-image.png"
-                          alt="No Photo"
-                          className="w-16 h-16 object-cover rounded shadow border border-gray-200"
-                        />
-                      )}
                     </td>
                   </tr>
                 ))

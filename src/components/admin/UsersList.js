@@ -10,6 +10,53 @@ import 'react-toastify/dist/ReactToastify.css';
 const USERS_PER_PAGE = 6;
 
 const UsersList = () => {
+  // Fetch all sectors and army units for sector name lookup
+  const [allSectors, setAllSectors] = useState([]);
+  const [allArmyUnits, setAllArmyUnits] = useState([]);
+
+  useEffect(() => {
+    async function fetchMeta() {
+      try {
+        const token = localStorage.getItem('auth_token');
+        const [sectorsRes, armyUnitsRes] = await Promise.all([
+          api.get('/sectors', { headers: { Authorization: `Bearer ${token}` } }),
+          api.get('/army-units', { headers: { Authorization: `Bearer ${token}` } })
+        ]);
+        setAllSectors(sectorsRes.data.data || sectorsRes.data.sectors || []);
+        setAllArmyUnits(armyUnitsRes.data.army_units || []);
+      } catch (err) {
+        setAllSectors([]);
+        setAllArmyUnits([]);
+      }
+    }
+    fetchMeta();
+  }, []);
+
+  // Helper to get sector name for a user
+  const getUserSectorName = (user) => {
+    if (user.role && user.role.toLowerCase() === 'defence officer') {
+      const sector = allSectors.find(s => String(s.id) === String(user.sector_id));
+      return sector ? sector.name : user.sector_id ? `Sector ${user.sector_id}` : '-';
+    }
+    if (user.role && user.role.toLowerCase() === 'army officer') {
+      const unit = allArmyUnits.find(u => String(u.id) === String(user.army_unit_id));
+      if (unit) {
+        const sector = allSectors.find(s => String(s.id) === String(unit.sector_id));
+        return sector ? sector.name : unit.sector_id ? `Sector ${unit.sector_id}` : '-';
+      }
+      return '-';
+    }
+    return '-';
+  };
+
+  // Helper to get army unit name for army officers
+  const getUserArmyUnitName = (user) => {
+    if (user.role && user.role.toLowerCase() === 'army officer') {
+      const unit = allArmyUnits.find(u => String(u.id) === String(user.army_unit_id));
+      return unit ? unit.name : '-';
+    }
+    return '-';
+  };
   // Manual refresh handler
   const handleRefresh = async () => {
     await fetchUsers();
@@ -32,6 +79,8 @@ const UsersList = () => {
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
   const [filteredUsers, setFilteredUsers] = useState([]);
+  const [searchMobile, setSearchMobile] = useState('');
+  const [filterRole, setFilterRole] = useState('');
 
   // Delete handler
   const handleDeleteUser = async (mobile_number) => {
@@ -230,38 +279,52 @@ const UsersList = () => {
     fetchUsers();
   }, []);
 
-  // Filter users by date range
+  // Filter users by date range, mobile number, and role
   useEffect(() => {
-    if (!filterStartDate && !filterEndDate) {
-      setFilteredUsers(users);
-      return;
+    let filtered = users;
+
+    // Filter by mobile number search
+    if (searchMobile.trim()) {
+      filtered = filtered.filter(user => 
+        user.mobile_number && user.mobile_number.includes(searchMobile.trim())
+      );
     }
 
-    const filtered = users.filter((user) => {
-      if (!user.created_at) return false;
-      
-      const createdDate = new Date(user.created_at);
-      const start = filterStartDate ? new Date(filterStartDate) : null;
-      const end = filterEndDate ? new Date(filterEndDate) : null;
-      
-      // Set time to start of day for comparison
-      if (start) start.setHours(0, 0, 0, 0);
-      if (end) end.setHours(23, 59, 59, 999);
-      createdDate.setHours(0, 0, 0, 0);
-      
-      if (start && end) {
-        return createdDate >= start && createdDate <= end;
-      } else if (start) {
-        return createdDate >= start;
-      } else if (end) {
-        return createdDate <= end;
-      }
-      return true;
-    });
+    // Filter by role
+    if (filterRole) {
+      filtered = filtered.filter(user => 
+        user.role && user.role.toLowerCase() === filterRole.toLowerCase()
+      );
+    }
+
+    // Filter by date range
+    if (filterStartDate || filterEndDate) {
+      filtered = filtered.filter((user) => {
+        if (!user.created_at) return false;
+        
+        const createdDate = new Date(user.created_at);
+        const start = filterStartDate ? new Date(filterStartDate) : null;
+        const end = filterEndDate ? new Date(filterEndDate) : null;
+        
+        // Set time to start of day for comparison
+        if (start) start.setHours(0, 0, 0, 0);
+        if (end) end.setHours(23, 59, 59, 999);
+        createdDate.setHours(0, 0, 0, 0);
+        
+        if (start && end) {
+          return createdDate >= start && createdDate <= end;
+        } else if (start) {
+          return createdDate >= start;
+        } else if (end) {
+          return createdDate <= end;
+        }
+        return true;
+      });
+    }
     
     setFilteredUsers(filtered);
     setPage(1); // Reset to first page when filter changes
-  }, [users, filterStartDate, filterEndDate]);
+  }, [users, filterStartDate, filterEndDate, searchMobile, filterRole]);
 
   const totalPages = Math.ceil(filteredUsers.length / USERS_PER_PAGE);
   const paginatedUsers = filteredUsers.slice((page - 1) * USERS_PER_PAGE, page * USERS_PER_PAGE);
@@ -295,22 +358,61 @@ const UsersList = () => {
         <AdminSidebar bgColor="#0b50a2" isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(v => !v)} />
         <main className={`flex-1 flex flex-col items-center justify-center p-3 sm:p-4 transition-all duration-300 ${isSidebarOpen ? 'md:ml-60' : 'ml-0'} overflow-x-hidden`}>
           <div className="w-full max-w-4xl bg-white rounded-lg shadow p-4 sm:p-6 mt-2 flex flex-col items-center">
-            <div className="w-full flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-3">
-              <h2 className="text-2xl sm:text-3xl font-bold text-blue-800">Users List</h2>
-              <div className="flex gap-2">
-                <button
-                  className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded shadow flex items-center text-base"
-                  onClick={handleRefresh}
-                  title="Refresh Users List"
-                >
-                  &#x21bb; Refresh
-                </button>
-                <button
-                  className="bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 px-3 sm:px-4 rounded shadow flex items-center text-sm sm:text-base w-full sm:w-auto justify-center"
-                  onClick={handleOpenModal}
-                >
-                  <span className="text-xl mr-2">+</span> Add New User
-                </button>
+            <div className="w-full mb-4 sm:mb-6">
+              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-4 gap-3">
+                <h2 className="text-2xl sm:text-3xl font-bold text-blue-800">Users List</h2>
+                
+                {/* Search, Filter and Action Buttons in one row */}
+                <div className="flex flex-wrap gap-2 items-center w-full lg:w-auto">
+                  {/* Mobile Search */}
+                  <input
+                    type="text"
+                    placeholder="Search mobile..."
+                    value={searchMobile}
+                    onChange={(e) => setSearchMobile(e.target.value)}
+                    className="border border-blue-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[160px]"
+                  />
+                  
+                  {/* Role Filter */}
+                  <select
+                    value={filterRole}
+                    onChange={(e) => setFilterRole(e.target.value)}
+                    className="border border-blue-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[140px]"
+                  >
+                    <option value="">All Roles</option>
+                    <option value="army officer">Army Officer</option>
+                    <option value="defence officer">Defence Officer</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                  
+                  {/* Clear Button */}
+                  {(searchMobile || filterRole) && (
+                    <button
+                      onClick={() => {
+                        setSearchMobile('');
+                        setFilterRole('');
+                      }}
+                      className="px-3 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm font-semibold rounded-lg transition"
+                    >
+                      Clear
+                    </button>
+                  )}
+                  
+                  {/* Action Buttons */}
+                  <button
+                    className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow flex items-center text-sm"
+                    onClick={handleRefresh}
+                    title="Refresh Users List"
+                  >
+                    &#x21bb; Refresh
+                  </button>
+                  <button
+                    className="bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded-lg shadow flex items-center text-sm"
+                    onClick={handleOpenModal}
+                  >
+                    <span className="text-xl mr-2">+</span> Add User
+                  </button>
+                </div>
               </div>
             </div>
             {/* Modal for Add New User */}
@@ -426,7 +528,7 @@ const UsersList = () => {
                     type="date"
                     value={filterStartDate}
                     onChange={(e) => setFilterStartDate(e.target.value)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="border border-blue-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                   />
                 </div>
                 <div className="flex items-center gap-2">
@@ -435,7 +537,7 @@ const UsersList = () => {
                     type="date"
                     value={filterEndDate}
                     onChange={(e) => setFilterEndDate(e.target.value)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="border border-blue-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                   />
                 </div>
                 {(filterStartDate || filterEndDate) && (
@@ -446,7 +548,7 @@ const UsersList = () => {
                     }}
                     className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm font-semibold rounded-lg transition"
                   >
-                    Clear Filter
+                    Clear Date Filter
                   </button>
                 )}
                 <div className="ml-auto text-sm text-gray-600">
@@ -455,43 +557,45 @@ const UsersList = () => {
               </div>
             </div>
 
-            <div className="overflow-x-auto w-full flex justify-center">
-              <table className="min-w-full sm:min-w-[800px] w-full border border-blue-800 rounded-lg shadow-lg divide-y divide-gray-200">
+            <div className="w-full">
+              <table className="w-full border border-blue-800 rounded-lg shadow-lg divide-y divide-gray-200">
                 <thead className="bg-blue-100">
                   <tr>
-                    <th className="px-2 sm:px-4 py-3 text-left text-xs sm:text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800">S.No</th>
-                    <th className="px-3 sm:px-6 py-3 text-left text-xs sm:text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800">Mobile No</th>
-                    <th className="px-3 sm:px-6 py-3 text-left text-xs sm:text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800">Created At</th>
-                    <th className="px-3 sm:px-6 py-3 text-left text-xs sm:text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800">Role</th>
-                    <th className="px-3 sm:px-6 py-3 text-center text-xs sm:text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800">Action</th>
+                    <th className="px-2 py-3 text-left text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800 w-[8%]">S.No</th>
+                    <th className="px-3 py-3 text-left text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800 w-[18%]">Mobile No</th>
+                    <th className="px-3 py-3 text-left text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800 w-[15%] hidden sm:table-cell">Created At</th>
+                    <th className="px-3 py-3 text-left text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800 w-[12%]">Role</th>
+                    <th className="px-3 py-3 text-left text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800 w-[20%]">Army Unit</th>
+                    <th className="px-3 py-3 text-left text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800 w-[17%]">Sector</th>
+                    <th className="px-3 py-3 text-center text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800 w-[10%]">Action</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {loading ? (
                     <tr>
-                      <td colSpan={5} className="text-center py-8 text-gray-500 font-semibold">Loading...</td>
+                      <td colSpan={7} className="text-center py-8 text-gray-500 font-semibold text-base">Loading...</td>
                     </tr>
                   ) : error ? (
                     <tr>
-                      <td colSpan={5} className="text-center py-8 text-red-500 font-semibold">{error}</td>
+                      <td colSpan={7} className="text-center py-8 text-red-500 font-semibold text-base">{error}</td>
                     </tr>
                   ) : users.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="text-center py-8 text-gray-500 font-semibold">No users to display yet.</td>
+                      <td colSpan={7} className="text-center py-8 text-gray-500 font-semibold text-base">No users to display yet.</td>
                     </tr>
                   ) : filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="text-center py-8 text-gray-500 font-semibold">No users found for the selected date range.</td>
+                      <td colSpan={7} className="text-center py-8 text-gray-500 font-semibold text-base">No users found for the selected date range.</td>
                     </tr>
                   ) : (
                     paginatedUsers.map((user, idx) => (
                       <tr key={user.id} className="transition-colors duration-150 hover:bg-blue-50">
-                        <td className="px-4 py-4 whitespace-nowrap font-bold text-gray-900 border-b border-blue-100">{(page - 1) * USERS_PER_PAGE + idx + 1}</td>
-                        <td className="px-6 py-4 whitespace-nowrap font-bold border-b border-blue-100">{user.mobile_number}</td>
-                        <td className="px-6 py-4 whitespace-nowrap font-bold border-b border-blue-100">{user.created_at ? new Date(user.created_at).toLocaleString() : '-'}</td>
+                        <td className="px-2 py-4 text-sm font-bold text-gray-900 border-b border-blue-100">{(page - 1) * USERS_PER_PAGE + idx + 1}</td>
+                        <td className="px-3 py-4 text-sm font-bold border-b border-blue-100 break-all">{user.mobile_number}</td>
+                        <td className="px-3 py-4 text-sm font-bold border-b border-blue-100 hidden sm:table-cell">{user.created_at ? new Date(user.created_at).toLocaleDateString() : '-'}</td>
                         <td
                           className={
-                            `px-6 py-4 whitespace-nowrap font-bold border-b border-blue-100 uppercase ` +
+                            `px-3 py-4 text-sm font-bold border-b border-blue-100 uppercase ` +
                             (user.role && user.role.toUpperCase() === 'DEFENCE OFFICER'
                               ? 'text-blue-700'
                               : user.role && user.role.toUpperCase() === 'ARMY OFFICER'
@@ -499,12 +603,11 @@ const UsersList = () => {
                                 : 'text-gray-800')
                           }
                         >
-                          {user.role ? user.role.toUpperCase() : '-'}
+                          {user.role ? (user.role.toUpperCase() === 'DEFENCE OFFICER' ? 'DEFENCE' : user.role.toUpperCase() === 'ARMY OFFICER' ? 'ARMY' : user.role.toUpperCase()) : '-'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap border-b border-blue-100 text-center">
-                          {/* <button className="inline-flex items-center justify-center p-2 rounded hover:bg-blue-100 mr-2" title="Edit">
-                            <FiEdit className="text-blue-700 w-5 h-5" />
-                          </button> */}
+                        <td className="px-3 py-4 text-sm font-bold border-b border-blue-100 break-words">{getUserArmyUnitName(user)}</td>
+                        <td className="px-3 py-4 text-sm font-bold border-b border-blue-100 break-words">{getUserSectorName(user)}</td>
+                        <td className="px-3 py-4 border-b border-blue-100 text-center">
                           {user.role && user.role.toUpperCase() !== 'ADMIN' && (
                             <button
                               className="inline-flex items-center justify-center p-2 rounded hover:bg-red-100"
@@ -525,28 +628,92 @@ const UsersList = () => {
             {totalPages > 1 && (
               <div className="flex justify-center items-center mt-6 gap-2">
                 <button
-                  className="px-3 py-1 rounded bg-blue-100 text-blue-800 font-bold disabled:opacity-50"
+                  className="px-4 py-2 rounded-lg bg-blue-100 text-blue-800 font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-200 transition-colors"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
                 >
-                  Prev
+                  Previous
                 </button>
-                {Array.from({ length: totalPages }, (_, i) => (
-                  <button
-                    key={i}
-                    className={`px-3 py-1 rounded font-bold ${page === i + 1 ? 'bg-blue-700 text-white' : 'bg-blue-50 text-blue-800'}`}
-                    onClick={() => setPage(i + 1)}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
+                
+                <div className="flex items-center gap-2">
+                  {(() => {
+                    const maxPagesToShow = 5;
+                    let startPage = Math.max(1, page - Math.floor(maxPagesToShow / 2));
+                    let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+                    
+                    if (endPage - startPage < maxPagesToShow - 1) {
+                      startPage = Math.max(1, endPage - maxPagesToShow + 1);
+                    }
+                    
+                    const pages = [];
+                    
+                    // First page button
+                    if (startPage > 1) {
+                      pages.push(
+                        <button
+                          key={1}
+                          className="px-3 py-2 rounded-lg font-bold bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
+                          onClick={() => setPage(1)}
+                        >
+                          1
+                        </button>
+                      );
+                      if (startPage > 2) {
+                        pages.push(<span key="ellipsis1" className="px-2 text-gray-500">...</span>);
+                      }
+                    }
+                    
+                    // Page number buttons
+                    for (let i = startPage; i <= endPage; i++) {
+                      pages.push(
+                        <button
+                          key={i}
+                          className={`px-3 py-2 rounded-lg font-bold transition-colors ${
+                            page === i 
+                              ? 'bg-blue-700 text-white shadow-md' 
+                              : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                          }`}
+                          onClick={() => setPage(i)}
+                        >
+                          {i}
+                        </button>
+                      );
+                    }
+                    
+                    // Last page button
+                    if (endPage < totalPages) {
+                      if (endPage < totalPages - 1) {
+                        pages.push(<span key="ellipsis2" className="px-2 text-gray-500">...</span>);
+                      }
+                      pages.push(
+                        <button
+                          key={totalPages}
+                          className="px-3 py-2 rounded-lg font-bold bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
+                          onClick={() => setPage(totalPages)}
+                        >
+                          {totalPages}
+                        </button>
+                      );
+                    }
+                    
+                    return pages;
+                  })()}
+                </div>
+                
                 <button
-                  className="px-3 py-1 rounded bg-blue-100 text-blue-800 font-bold disabled:opacity-50"
+                  className="px-4 py-2 rounded-lg bg-blue-100 text-blue-800 font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-200 transition-colors"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
                 >
                   Next
                 </button>
+              </div>
+            )}
+            
+            {/* Page info */}
+            {filteredUsers.length > 0 && (
+              <div className="mt-4 text-center text-sm text-gray-600">
+                Showing {Math.min((page - 1) * USERS_PER_PAGE + 1, filteredUsers.length)} to {Math.min(page * USERS_PER_PAGE, filteredUsers.length)} of {filteredUsers.length} users
               </div>
             )}
           </div>

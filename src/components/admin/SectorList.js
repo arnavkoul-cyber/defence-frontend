@@ -1,4 +1,4 @@
-import { FiTrash2 } from 'react-icons/fi';
+import { FiTrash2, FiEye } from 'react-icons/fi';
   // Delete handler
  
 import React, { useState, useEffect } from 'react';
@@ -8,6 +8,7 @@ import Footer from '../footer';
 import AdminSidebar from './AdminSidebar';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import SectorDetails from './SectorDetails';
 
 const SECTORS_PER_PAGE = 10;
 
@@ -44,6 +45,20 @@ const SectorList = () => {
   const [addError, setAddError] = useState('');
   const [addSuccess, setAddSuccess] = useState('');
   const [page, setPage] = useState(1);
+  const [selectedSector, setSelectedSector] = useState(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const handleViewDetails = (sector) => {
+    setSelectedSector(sector);
+    setShowDetailsModal(true);
+  };
+
+  const handleCloseDetailsModal = () => {
+    setShowDetailsModal(false);
+    setSelectedSector(null);
+  };
+
    const handleDeleteSector = async (sectorName) => {
     if (!window.confirm(`Are you sure you want to delete sector "${sectorName}"?`)) return;
     try {
@@ -119,9 +134,14 @@ const SectorList = () => {
     }
   };
 
+  // Filter sectors based on search query
+  const filteredSectors = sectors.filter(sector =>
+    sector.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   // Pagination logic
-  const totalPages = Math.ceil(sectors.length / SECTORS_PER_PAGE);
-  const paginatedSectors = sectors.slice((page - 1) * SECTORS_PER_PAGE, page * SECTORS_PER_PAGE);
+  const totalPages = Math.ceil(filteredSectors.length / SECTORS_PER_PAGE);
+  const paginatedSectors = filteredSectors.slice((page - 1) * SECTORS_PER_PAGE, page * SECTORS_PER_PAGE);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 relative">
@@ -179,22 +199,62 @@ const SectorList = () => {
           }}
         >
           <div className="w-full max-w-4xl bg-white rounded-lg shadow p-6 mt-2 flex flex-col items-center">
-            <div className="w-full flex items-center justify-between mb-6">
-              <h2 className="text-3xl font-bold text-blue-800">Sectors List</h2>
-              <div className="flex gap-2">
-                <button
-                  className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded shadow flex items-center text-base"
-                  onClick={handleRefresh}
-                  title="Refresh Sectors List"
-                >
-                  &#x21bb; Refresh
-                </button>
-                <button
-                  className="bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded shadow flex items-center text-base"
-                  onClick={handleOpenModal}
-                >
-                  <span className="text-xl mr-2">+</span> Add Sector
-                </button>
+            <div className="w-full mb-4">
+              <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 p-3 rounded text-sm font-semibold">
+                <strong>Note:</strong> Before deleting a sector, please delete all labours and army units assigned to that sector. Otherwise, deletion may fail or cause data inconsistency.
+              </div>
+            </div>
+            <div className="w-full mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-3xl font-bold text-blue-800">Sectors List</h2>
+                <div className="flex gap-2">
+                  <button
+                    className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded shadow flex items-center text-base"
+                    onClick={handleRefresh}
+                    title="Refresh Sectors List"
+                  >
+                    &#x21bb; Refresh
+                  </button>
+                  <button
+                    className="bg-blue-700 hover:bg-blue-800 text-white font-bold py-2 px-4 rounded shadow flex items-center text-base"
+                    onClick={handleOpenModal}
+                  >
+                    <span className="text-xl mr-2">+</span> Add Sector
+                  </button>
+                </div>
+              </div>
+              {/* Search Bar */}
+              <div className="w-full max-w-md">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setPage(1); // Reset to first page on search
+                    }}
+                    placeholder="Search by sector name..."
+                    className="w-full pl-10 pr-4 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                  {searchQuery && (
+                    <button
+                      onClick={() => {
+                        setSearchQuery('');
+                        setPage(1);
+                      }}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
             {/* Modal for Add New Sector */}
@@ -249,9 +309,15 @@ const SectorList = () => {
                       <tr>
                         <td colSpan={3} className="text-center py-8 text-red-500 font-semibold">{error}</td>
                       </tr>
+                    ) : filteredSectors.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className="text-center py-8 text-gray-500 font-semibold">
+                          {searchQuery ? `No sectors found matching "${searchQuery}"` : 'No sectors to display yet.'}
+                        </td>
+                      </tr>
                     ) : paginatedSectors.length === 0 ? (
                       <tr>
-                        <td colSpan={3} className="text-center py-8 text-gray-500 font-semibold">No sectors to display yet.</td>
+                        <td colSpan={3} className="text-center py-8 text-gray-500 font-semibold">No sectors on this page.</td>
                       </tr>
                     ) : (
                       paginatedSectors.map((sector, idx) => (
@@ -260,7 +326,14 @@ const SectorList = () => {
                           <td className="px-2 py-2 md:px-6 md:py-4 whitespace-nowrap font-bold border-b border-blue-100">{sector.name}</td>
                           <td className="px-2 py-2 md:px-6 md:py-4 whitespace-nowrap font-bold border-b border-blue-100 text-center">
                             <button
-                              className="text-red-600 hover:text-red-800 p-2 rounded"
+                              className="text-blue-600 hover:text-blue-800 p-2 rounded inline-flex items-center"
+                              title="View Details"
+                              onClick={() => handleViewDetails(sector)}
+                            >
+                              <FiEye size={18} />
+                            </button>
+                            <button
+                              className="text-red-600 hover:text-red-800 p-2 rounded ml-2"
                               title="Delete Sector"
                               onClick={() => handleDeleteSector(sector.name)}
                             >
@@ -276,7 +349,7 @@ const SectorList = () => {
             </div>
             {/* Pagination Controls */}
             {totalPages > 1 && (
-              <div className="flex justify-center items-center mt-4 space-x-2">
+              <div className="flex justify-center items-center mt-4 space-x-2 flex-wrap">
                 <button
                   className="px-3 py-1 rounded bg-blue-100 text-blue-800 font-bold disabled:opacity-50"
                   onClick={() => setPage(page - 1)}
@@ -284,15 +357,42 @@ const SectorList = () => {
                 >
                   Prev
                 </button>
-                {Array.from({ length: totalPages }, (_, i) => (
-                  <button
-                    key={i}
-                    className={`px-3 py-1 rounded font-bold ${page === i + 1 ? 'bg-blue-700 text-white' : 'bg-blue-100 text-blue-800'}`}
-                    onClick={() => setPage(i + 1)}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
+                {/* Show first page */}
+                {page > 3 && (
+                  <>
+                    <button
+                      className={`px-3 py-1 rounded font-bold ${page === 1 ? 'bg-blue-700 text-white' : 'bg-blue-100 text-blue-800'}`}
+                      onClick={() => setPage(1)}
+                    >
+                      1
+                    </button>
+                    <span className="px-2">...</span>
+                  </>
+                )}
+                {/* Show up to 2 pages before and after current */}
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(p => p >= page - 2 && p <= page + 2)
+                  .map(p => (
+                    <button
+                      key={p}
+                      className={`px-3 py-1 rounded font-bold ${page === p ? 'bg-blue-700 text-white' : 'bg-blue-100 text-blue-800'}`}
+                      onClick={() => setPage(p)}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                {/* Show last page */}
+                {page < totalPages - 2 && (
+                  <>
+                    <span className="px-2">...</span>
+                    <button
+                      className={`px-3 py-1 rounded font-bold ${page === totalPages ? 'bg-blue-700 text-white' : 'bg-blue-100 text-blue-800'}`}
+                      onClick={() => setPage(totalPages)}
+                    >
+                      {totalPages}
+                    </button>
+                  </>
+                )}
                 <button
                   className="px-3 py-1 rounded bg-blue-100 text-blue-800 font-bold disabled:opacity-50"
                   onClick={() => setPage(page + 1)}
@@ -306,6 +406,15 @@ const SectorList = () => {
         </main>
       </div>
       </div>
+
+      {/* Sector Details Modal */}
+      {showDetailsModal && selectedSector && (
+        <SectorDetails
+          sector={selectedSector}
+          onClose={handleCloseDetailsModal}
+        />
+      )}
+
       <Footer />
     </div>
   );

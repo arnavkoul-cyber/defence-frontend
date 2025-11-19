@@ -33,6 +33,16 @@ const StatsCard = ({ title, value, subtitle, icon, color }) => (
 );
 
 function Analytics() {
+  // Date filter state for analytics (must be inside component)
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  const defaultStart = `${yyyy}-${mm}-01`;
+  const defaultEnd = `${yyyy}-${mm}-${dd}`;
+  const [filterStartDate, setFilterStartDate] = useState(defaultStart);
+  const [filterEndDate, setFilterEndDate] = useState(defaultEnd);
+
   const [labours, setLabours] = useState([]); // generic or assigned list
   const [armyUnits, setArmyUnits] = useState([]); // defence only
   const [sectors, setSectors] = useState([]); // defence only
@@ -41,7 +51,6 @@ function Analytics() {
 
   const armyUnitId = localStorage.getItem('army_unit_id');
   const isArmyDashboard = !!armyUnitId && armyUnitId !== 'null';
-  const today = new Date();
   const todayStr = new Date(today.getTime() - today.getTimezoneOffset()*60000).toISOString().slice(0,10);
 
   useEffect(() => {
@@ -51,36 +60,45 @@ function Analytics() {
           const mobile = localStorage.getItem('mobile_number');
           const [labourRes, attendanceRes] = await Promise.all([
             api.get(`/labour/assigned/${mobile}`),
-            api.get(`/attendance/army/${armyUnitId}`)
+            api.post('/attendance/army', {
+              army_unit_id: armyUnitId,
+              startDate: filterStartDate,
+              endDate: filterEndDate
+            })
           ]);
-            const assigned = labourRes.data.labours || [];
-            setLabours(assigned);
-            const records = (attendanceRes.data && attendanceRes.data.attendances) || [];
-            // Build present set for today
-            const presentSet = new Set();
-            const statusMap = {}; // labour_id -> last status
-            let todayCount = 0;
-            records.forEach(r => {
-              if (!r || !r.attendance_date) return;
-              const d = new Date(r.attendance_date);
-              const dStr = new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
-              if (dStr === todayStr) {
-                todayCount++;
-                statusMap[r.labour_id] = r.status; // keep last
-              }
-            });
-            Object.entries(statusMap).forEach(([lid, st]) => { if (st === 1) presentSet.add(lid); });
-            const present = presentSet.size;
-            const absent = Math.max(assigned.length - present, 0);
-            setAttendanceToday({ present, absent, totalRecords: todayCount });
+          const assigned = labourRes.data.labours || [];
+          setLabours(assigned);
+          const records = (attendanceRes.data && attendanceRes.data.attendances) || [];
+          // Build present set for today
+          const presentSet = new Set();
+          const statusMap = {}; // labour_id -> last status
+          let todayCount = 0;
+          records.forEach(r => {
+            if (!r || !r.attendance_date) return;
+            const d = new Date(r.attendance_date);
+            const dStr = new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+            if (dStr === todayStr) {
+              todayCount++;
+              statusMap[r.labour_id] = r.status; // keep last
+            }
+          });
+          Object.entries(statusMap).forEach(([lid, st]) => { if (st === 1) presentSet.add(lid); });
+          const present = presentSet.size;
+          const absent = Math.max(assigned.length - present, 0);
+          setAttendanceToday({ present, absent, totalRecords: todayCount });
         } catch (e) {
           // eslint-disable-next-line no-console
           console.error('Army analytics fetch error', e);
         }
       } else {
         try {
+          // Use POST /labour/by-officer with officer_id, startDate, endDate from filter
           const userId = localStorage.getItem('userId');
-          const labRes = await api.get(`/labour/${userId}`);
+          const labRes = await api.post('/labour/by-officer', {
+            officer_id: userId,
+            startDate: filterStartDate,
+            endDate: filterEndDate
+          });
           setLabours(labRes.data.labours || []);
         } catch {}
         try {
@@ -95,7 +113,7 @@ function Analytics() {
       }
     };
     init();
-  }, [isArmyDashboard, armyUnitId, todayStr]);
+  }, [isArmyDashboard, armyUnitId, todayStr, filterStartDate, filterEndDate]);
 
   // Defence metrics
   const assignedCount = !isArmyDashboard ? labours.filter((l) => !!l.army_unit_id).length : 0;
@@ -137,7 +155,11 @@ function Analytics() {
       if (isArmyDashboard) {
         try {
           const armyUnitId = localStorage.getItem('army_unit_id');
-          const res = await api.get(`/attendance/army/${armyUnitId}`);
+          const res = await api.post('/attendance/army', {
+            army_unit_id: armyUnitId,
+            startDate: filterStartDate,
+            endDate: filterEndDate
+          });
           const records = (res.data && res.data.attendances) || [];
           // Group by date
           const map = {};
@@ -162,8 +184,13 @@ function Analytics() {
         } catch {}
       } else {
         try {
+          // Use POST /labour/by-officer for trend as well, with filter dates
           const userId = localStorage.getItem('userId');
-          const res = await api.get(`/labour/${userId}`);
+          const res = await api.post('/labour/by-officer', {
+            officer_id: userId,
+            startDate: filterStartDate,
+            endDate: filterEndDate
+          });
           const labours = res.data.labours || [];
           // Group by registration date
           const map = {};
@@ -243,6 +270,26 @@ function Analytics() {
           <div className="mb-4 sm:mb-5">
             <h2 className={`text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight ${gradientTextClass} drop-shadow-sm`}>{isArmyDashboard ? 'Unit Analytics' : 'Analytics'}</h2>
             <div className={`mt-2 h-1.5 w-28 ${gradientTextClass.includes('green') ? 'bg-gradient-to-r from-green-600 to-emerald-500' : gradientTextClass.includes('gray') ? 'bg-gradient-to-r from-gray-700 to-gray-500' : 'bg-gradient-to-r from-blue-600 to-sky-500'} rounded-full`}></div>
+            {/* Date Filter Row */}
+            <div className="flex flex-wrap gap-2 items-center mt-4">
+              <label className="font-medium text-gray-600">From:</label>
+              <input
+                type="date"
+                className="border rounded px-2 py-1"
+                value={filterStartDate}
+                max={filterEndDate}
+                onChange={e => setFilterStartDate(e.target.value)}
+              />
+              <label className="font-medium text-gray-600 ml-2">To:</label>
+              <input
+                type="date"
+                className="border rounded px-2 py-1"
+                value={filterEndDate}
+                min={filterStartDate}
+                max={defaultEnd}
+                onChange={e => setFilterEndDate(e.target.value)}
+              />
+            </div>
           </div>
           {/* Analytics Cards */}
           {!isArmyDashboard && (
