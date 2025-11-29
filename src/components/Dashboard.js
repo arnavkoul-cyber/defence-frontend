@@ -43,6 +43,7 @@ function Dashboard() {
     adhar_path: '',
     pan_path: '',
     photo_path: '',
+    army_unit_id: '',
   });
 
   const handleEditClick = (labour) => {
@@ -59,7 +60,9 @@ function Dashboard() {
       adhar_path: labour.adhar_path || '',
       pan_path: labour.pan_path || '',
       photo_path: labour.photo_path || '',
+      army_unit_id: labour.army_unit_id || '',
     });
+    fetchArmyUnits();
     setIsEditModalOpen(true);
   };
 
@@ -84,7 +87,10 @@ function Dashboard() {
     setEditErrors(errors);
     if (Object.keys(errors).length > 0) return;
     try {
-      await api.put(`/labour/${selectedLabour.id}`, editForm);
+      await api.put(`/labour/${selectedLabour.id}`, {
+        ...editForm,
+        army_unit_id: editForm.army_unit_id,
+      });
       toast.success('Labour updated successfully!', { position: 'top-center', autoClose: 1800 });
       setIsEditModalOpen(false);
       setSelectedLabour(null);
@@ -851,6 +857,21 @@ function Dashboard() {
                 <label className="block text-sm font-semibold text-gray-700">Labour Photo
                   <input type="file" name="photo_path" accept="image/*" onChange={handleEditFormChange} className="mt-1 w-full border border-gray-300 rounded-lg p-3" />
                   {editForm.photo_path && <img src={editForm.photo_path} alt="Labour Preview" className="mt-2 w-24 h-16 object-cover rounded border" />}
+                </label>
+                <label className="block text-sm font-semibold text-gray-700">Army Unit
+                  <select
+                    name="army_unit_id"
+                    value={editForm.army_unit_id}
+                    onChange={handleEditFormChange}
+                    className="mt-1 w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-400"
+                  >
+                    <option value="">-- Select Army Unit --</option>
+                    {armyUnits.map((unit) => (
+                      <option key={unit.id} value={unit.id}>
+                        {unit.name}
+                      </option>
+                    ))}
+                  </select>
                 </label>
               </div>
               <div className="flex justify-end gap-3 mt-7">
