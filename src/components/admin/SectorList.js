@@ -1,4 +1,4 @@
-import { FiTrash2, FiEye } from 'react-icons/fi';
+import { FiTrash2, FiEye, FiX } from 'react-icons/fi';
   // Delete handler
  
 import React, { useState, useEffect } from 'react';
@@ -48,6 +48,8 @@ const SectorList = () => {
   const [selectedSector, setSelectedSector] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [sectorToDelete, setSectorToDelete] = useState(null);
 
   const handleViewDetails = (sector) => {
     setSelectedSector(sector);
@@ -59,21 +61,33 @@ const SectorList = () => {
     setSelectedSector(null);
   };
 
-   const handleDeleteSector = async (sectorName) => {
-    if (!window.confirm(`Are you sure you want to delete sector "${sectorName}"?`)) return;
+   const handleDeleteSector = (sector) => {
+    setSectorToDelete(sector);
+    setIsConfirmDeleteOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!sectorToDelete) return;
+    setIsConfirmDeleteOpen(false);
     try {
       const token = localStorage.getItem('auth_token');
-      await api.delete(`/sectors/name/${encodeURIComponent(sectorName)}`, {
+      await api.delete(`/sectors/name/${encodeURIComponent(sectorToDelete.name)}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       toast.success('Sector deleted successfully!');
       await fetchSectors();
-      setPage(1); // Reset to first page after deletion
+      setPage(1);
+      setSectorToDelete(null);
     } catch (err) {
-      // Show API error message if available
       const apiError = err?.response?.data?.error;
       toast.error(apiError || 'Failed to delete sector.');
+      setSectorToDelete(null);
     }
+  };
+
+  const handleCancelDelete = () => {
+    setIsConfirmDeleteOpen(false);
+    setSectorToDelete(null);
   };
 
   // Make sure fetchSectors is defined at the top level so it's in scope for all functions
@@ -335,7 +349,7 @@ const SectorList = () => {
                             <button
                               className="text-red-600 hover:text-red-800 p-2 rounded ml-2"
                               title="Delete Sector"
-                              onClick={() => handleDeleteSector(sector.name)}
+                              onClick={() => handleDeleteSector(sector)}
                             >
                               <FiTrash2 size={18} />
                             </button>
@@ -413,6 +427,47 @@ const SectorList = () => {
           sector={selectedSector}
           onClose={handleCloseDetailsModal}
         />
+      )}
+
+      {/* Confirmation Modal */}
+      {isConfirmDeleteOpen && sectorToDelete && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            <div className="bg-gradient-to-r from-yellow-600 to-orange-500 text-white px-6 py-4 flex items-center justify-between rounded-t-xl">
+              <h2 className="text-xl font-bold">Confirm Deletion</h2>
+              <button
+                onClick={handleCancelDelete}
+                className="p-1 rounded-full hover:bg-white/20 transition"
+              >
+                <FiX className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <p className="text-gray-700 text-lg mb-2">
+                Are you sure you want to delete sector <span className="font-bold text-gray-900">"{sectorToDelete.name}"</span>?
+              </p>
+              <p className="text-sm text-gray-500">
+                This action cannot be undone. All data associated with this sector will be affected.
+              </p>
+            </div>
+
+            <div className="bg-gray-50 px-6 py-4 rounded-b-xl flex gap-3">
+              <button
+                onClick={handleCancelDelete}
+                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition font-medium"
+              >
+                No, Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="flex-1 px-4 py-2 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-lg hover:from-red-700 hover:to-red-600 transition font-medium shadow"
+              >
+                Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <Footer />

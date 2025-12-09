@@ -143,6 +143,10 @@ function Dashboard() {
   const [filterStartDate, setFilterStartDate] = useState(defaultStart);
   const [filterEndDate, setFilterEndDate] = useState(defaultEnd);
   const [filteredLabours, setFilteredLabours] = useState([]);
+  // Assigned/Not assigned filter (only for Defence Officer view)
+  const [statusFilter, setStatusFilter] = useState(''); // '', 'assigned', 'not-assigned'
+  // Search by labour name
+  const [searchName, setSearchName] = useState('');
 
   const fetchLabours = async () => {
     try {
@@ -176,6 +180,13 @@ function Dashboard() {
     } catch (err) {
       console.error('Error fetching army units:', err);
     }
+  };
+
+  // Helper function to get army unit name by ID
+  const getArmyUnitName = (armyUnitId) => {
+    if (!armyUnitId) return null;
+    const unit = armyUnits.find(u => u.id === armyUnitId);
+    return unit ? unit.name : null;
   };
 
 
@@ -309,41 +320,59 @@ function Dashboard() {
 
   useEffect(() => {
     fetchLabours();
+    fetchArmyUnits();
   // Cards moved to Analytics page; keep base fetch only
   }, [filterStartDate, filterEndDate]);
 
   // Filter labours by date range
   useEffect(() => {
-    if (!filterStartDate && !filterEndDate) {
-      setFilteredLabours(labours);
-      return;
+    let filtered = labours;
+
+    // Apply search by name filter
+    if (searchName.trim()) {
+      filtered = filtered.filter((labour) =>
+        labour.name?.toLowerCase().includes(searchName.toLowerCase())
+      );
     }
 
-    const filtered = labours.filter((labour) => {
-      if (!labour.created_at) return false;
-      
-      const createdDate = new Date(labour.created_at);
-      const start = filterStartDate ? new Date(filterStartDate) : null;
-      const end = filterEndDate ? new Date(filterEndDate) : null;
-      
-      // Set time to start of day for comparison
-      if (start) start.setHours(0, 0, 0, 0);
-      if (end) end.setHours(23, 59, 59, 999);
-      createdDate.setHours(0, 0, 0, 0);
-      
-      if (start && end) {
-        return createdDate >= start && createdDate <= end;
-      } else if (start) {
-        return createdDate >= start;
-      } else if (end) {
-        return createdDate <= end;
-      }
-      return true;
-    });
+    // Apply date range filter
+    if (filterStartDate || filterEndDate) {
+      filtered = filtered.filter((labour) => {
+        if (!labour.created_at) return false;
+        
+        const createdDate = new Date(labour.created_at);
+        const start = filterStartDate ? new Date(filterStartDate) : null;
+        const end = filterEndDate ? new Date(filterEndDate) : null;
+        
+        // Set time to start of day for comparison
+        if (start) start.setHours(0, 0, 0, 0);
+        if (end) end.setHours(23, 59, 59, 999);
+        createdDate.setHours(0, 0, 0, 0);
+        
+        let dateOk = true;
+        if (start && end) {
+          dateOk = createdDate >= start && createdDate <= end;
+        } else if (start) {
+          dateOk = createdDate >= start;
+        } else if (end) {
+          dateOk = createdDate <= end;
+        }
+
+        return dateOk;
+      });
+    }
+
+    // Apply status filter
+    if (statusFilter) {
+      filtered = filtered.filter((labour) => {
+        const isAssigned = !!labour.army_unit_id;
+        return statusFilter === 'assigned' ? isAssigned : !isAssigned;
+      });
+    }
     
     setFilteredLabours(filtered);
     setCurrentPage(1); // Reset to first page when filter changes
-  }, [labours, filterStartDate, filterEndDate]);
+  }, [labours, filterStartDate, filterEndDate, statusFilter, searchName]);
 
   // Pagination logic
   const totalPages = Math.ceil(filteredLabours.length / entriesPerPage);
@@ -420,6 +449,16 @@ function Dashboard() {
           <div className="mb-6 bg-white rounded-xl shadow-md p-4 border border-gray-200">
             <div className="flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-2">
+                <label className="text-sm font-semibold text-gray-700">Search:</label>
+                <input
+                  type="text"
+                  value={searchName}
+                  onChange={(e) => setSearchName(e.target.value)}
+                  placeholder="Enter labour name..."
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex items-center gap-2">
                 <label className="text-sm font-semibold text-gray-700">From:</label>
                 <input
                   type="date"
@@ -437,11 +476,27 @@ function Dashboard() {
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              {(filterStartDate || filterEndDate) && (
+              {!isArmyDashboard && (
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-semibold text-gray-700">Status:</label>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">All</option>
+                    <option value="assigned">Assigned</option>
+                    <option value="not-assigned">Not assigned</option>
+                  </select>
+                </div>
+              )}
+              {(searchName || filterStartDate || filterEndDate || (!isArmyDashboard && statusFilter)) && (
                 <button
                   onClick={() => {
+                    setSearchName('');
                     setFilterStartDate('');
                     setFilterEndDate('');
+                    setStatusFilter('');
                   }}
                   className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm font-semibold rounded-lg transition"
                 >
@@ -468,6 +523,7 @@ function Dashboard() {
                 
                 {!isArmyDashboard && <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Father Name</th>}
                 <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Contact</th>
+                {!isArmyDashboard && <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Army Unit</th>}
                 {!isArmyDashboard && <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Aadhaar Photo</th>}
                 {isArmyDashboard && (
                   <>
@@ -486,11 +542,11 @@ function Dashboard() {
             <tbody className="divide-y divide-gray-200">
               {labours.length === 0 ? (
                 <tr>
-                  <td colSpan={isArmyDashboard ? 4 : 7} className="text-center py-4 text-gray-500">No labours found.</td>
+                  <td colSpan={isArmyDashboard ? 4 : 8} className="text-center py-4 text-gray-500">No labours found.</td>
                 </tr>
               ) : filteredLabours.length === 0 ? (
                 <tr>
-                  <td colSpan={isArmyDashboard ? 4 : 7} className="text-center py-4 text-gray-500">No labours found for the selected date range.</td>
+                  <td colSpan={isArmyDashboard ? 4 : 8} className="text-center py-4 text-gray-500">No labours found for the selected date range.</td>
                 </tr>
               ) : (
                 paginatedLabours.map((labour) => {
@@ -517,6 +573,20 @@ function Dashboard() {
                        <td className="px-6 py-4">{capitalize(labour.created_at)}</td>
                       {!isArmyDashboard && <td className="px-6 py-4">{capitalize(labour.father_name)}</td>}
                       <td className="px-6 py-4">{labour.contact_number}</td>
+                      {!isArmyDashboard && (
+                        <td className="px-6 py-4">
+                          {(() => {
+                            const unitName = getArmyUnitName(labour.army_unit_id);
+                            return unitName ? (
+                              <span className="text-gray-800 text-sm font-medium">
+                                {unitName}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 italic text-xs">Not Assigned</span>
+                            );
+                          })()}
+                        </td>
+                      )}
                       {!isArmyDashboard && (
                         <td className="px-6 py-4">
                           {labour.adhar_path ? (
@@ -580,7 +650,7 @@ function Dashboard() {
                             {labour.army_unit_id ? (
                               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">Assigned</span>
                             ) : (
-                              <span className="text-gray-400" />
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">Not assigned</span>
                             )}
                           </td>
                         </>
@@ -619,6 +689,14 @@ function Dashboard() {
                     <p className="text-xs text-gray-500 mt-0.5">Father: {capitalize(labour.father_name) || '—'}</p>
                   )}
                   <p className="text-sm text-gray-600 mt-1">📞 {labour.contact_number}</p>
+                  {!isArmyDashboard && (
+                    <p className="text-xs text-gray-700 mt-1">
+                      Army Unit: {(() => {
+                        const unitName = getArmyUnitName(labour.army_unit_id);
+                        return unitName ? <span className="font-medium">{unitName}</span> : <span className="italic text-gray-400">Not Assigned</span>;
+                      })()}
+                    </p>
+                  )}
                   {isArmyDashboard && (
                     <div className="mt-2 flex flex-col gap-1">
                       <span className="text-xs text-gray-700 flex items-center gap-1">
@@ -640,7 +718,9 @@ function Dashboard() {
                     <div className="mt-2 flex gap-2">
                       {labour.army_unit_id ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-800 border border-green-200">Assigned</span>
-                      ) : null}
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">Not assigned</span>
+                      )}
                       <button
                         onClick={() => handleView(labour)}
                         disabled={!!labour.army_unit_id}

@@ -15,6 +15,41 @@ const api = axios.create({
   }
 });
 
+// Response interceptor to handle token expiration
+api.interceptors.response.use(
+  (response) => {
+    // Check if response contains expired flag
+    if (response.data && response.data.expired === true) {
+      // Clear all auth-related data from localStorage
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('role');
+      localStorage.removeItem('sector_id');
+      localStorage.removeItem('army_unit_id');
+      
+      // Redirect to login
+      window.location.href = '/login';
+      return Promise.reject(new Error('Token expired'));
+    }
+    return response;
+  },
+  (error) => {
+    // Handle 401 Unauthorized errors (token expired or invalid)
+    if (error.response && error.response.status === 401) {
+      // Clear all auth-related data from localStorage
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('role');
+      localStorage.removeItem('sector_id');
+      localStorage.removeItem('army_unit_id');
+      
+      // Redirect to login
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Helper function to get full image URL
 export const getImageUrl = (path) => {
   if (!path) return null;

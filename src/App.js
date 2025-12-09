@@ -15,6 +15,7 @@ import ArmyUnitsList from './components/admin/ArmyUnitsList';
 import ArmyUnitsBySector from './components/ArmyUnitsBySector';
 import SectorUnitsPersonnel from './components/SectorUnitsPersonnel';
 import LaboursList from './components/admin/LaboursList';
+import LabourDeletionRequests from './components/admin/LabourDeletionRequests';
 
 // --- auth helpers ---
 const isAuthenticated = () => {
@@ -83,6 +84,7 @@ function App() {
         <Route path="/admin/labours" element={<AdminRoute><LaboursList /></AdminRoute>} />
         <Route path="/admin/sectors" element={<AdminRoute><SectorList /></AdminRoute>} />
         <Route path="/admin/army-units" element={<AdminRoute><ArmyUnitsList /></AdminRoute>} />
+        <Route path="/admin/deletion-requests" element={<AdminRoute><LabourDeletionRequests /></AdminRoute>} />
 
         {/* Officer */}
   <Route path="/dashboard" element={<OfficerRoute><Dashboard /></OfficerRoute>} />

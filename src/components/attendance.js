@@ -268,7 +268,11 @@ const Attendance = () => {
             <thead>
               <tr className={tableHeaderClass}>
                 <th className="px-4 py-2 text-left font-semibold">Name</th>
+                <th className="px-4 py-2 text-left font-semibold">Contact Number</th>
+                <th className="px-4 py-2 text-left font-semibold">PAN Number</th>
                 <th className="px-4 py-2 text-left font-semibold">Attendance Date</th>
+                <th className="px-4 py-2 text-left font-semibold">Start Date</th>
+                <th className="px-4 py-2 text-left font-semibold">End Date</th>
                 <th className="px-4 py-2 text-left font-semibold">Photo Upload</th>
                 <th className="px-4 py-2 text-left font-semibold">Mark Attendance</th>
                 <th className="px-4 py-2 text-left font-semibold">Status</th>
@@ -278,7 +282,11 @@ const Attendance = () => {
               {paginatedLabours.map(labour => (
                 <tr key={labour.id} className="border-b">
                   <td className="px-4 py-2">{labour.name}</td>
+                  <td className="px-4 py-2">{labour.contact_number || '-'}</td>
+                  <td className="px-4 py-2">{labour.pan_number || '-'}</td>
                   <td className="px-4 py-2">{today}</td>
+                  <td className="px-4 py-2">{filterStartDate}</td>
+                  <td className="px-4 py-2">{filterEndDate}</td>
                   <td className="px-4 py-2">
                     {photoData[labour.id] ? (
                       <div className="flex flex-col items-center gap-1">
@@ -313,7 +321,7 @@ const Attendance = () => {
                   <td className="px-4 py-2">
                     <button
                       className="bg-green-600 hover:bg-green-700 text-white px-4 py-1 rounded font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
-                      disabled={!photoData[labour.id] || submitting[labour.id] || attendanceMap[labour.id]}
+                      disabled={submitting[labour.id] || attendanceMap[labour.id]}
                       onClick={() => handleMarkAttendance(labour.id)}
                     >
                       {submitting[labour.id] ? 'Submitting...' : 'Submit'}
@@ -340,7 +348,11 @@ const Attendance = () => {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold text-gray-800">{labour.name}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Contact: {labour.contact_number || '-'}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">PAN: {labour.pan_number || '-'}</p>
                   <p className="text-xs text-gray-500 mt-0.5">Date: {today}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Start: {filterStartDate}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">End: {filterEndDate}</p>
                   <div className="mt-2">
                     {attendanceMap[labour.id] === true ? (
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 border border-green-200">Present</span>
@@ -380,7 +392,7 @@ const Attendance = () => {
               <div className="mt-3 flex items-center gap-3">
                 <button
                   className="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm font-medium disabled:opacity-60 disabled:cursor-not-allowed"
-                  disabled={!photoData[labour.id] || submitting[labour.id] || attendanceMap[labour.id]}
+                  disabled={submitting[labour.id] || attendanceMap[labour.id]}
                   onClick={() => handleMarkAttendance(labour.id)}
                 >{submitting[labour.id] ? 'Saving...' : 'Submit'}</button>
               </div>

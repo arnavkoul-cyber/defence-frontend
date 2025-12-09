@@ -3,7 +3,7 @@ import api from '../../api/api';
 import Header from '../Header';
 import Footer from '../footer';
 import AdminSidebar from './AdminSidebar';
-import { FiEdit, FiTrash2 } from 'react-icons/fi';
+import { FiEdit, FiTrash2, FiX } from 'react-icons/fi';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -78,30 +78,90 @@ const UsersList = () => {
   const [addSuccess, setAddSuccess] = useState('');
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchMobile, setSearchMobile] = useState('');
   const [filterRole, setFilterRole] = useState('');
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [userToEdit, setUserToEdit] = useState(null);
+  const [editFormData, setEditFormData] = useState({ mobile_number: '', role: '', sector_id: '', army_unit_id: '' });
+  const [editLoading, setEditLoading] = useState(false);
 
   // Delete handler
-  const handleDeleteUser = async (mobile_number) => {
-    if (!window.confirm('Are you sure you want to delete this user?')) return;
+  const handleDeleteUser = (user) => {
+    setUserToDelete(user);
+    setIsConfirmDeleteOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!userToDelete) return;
+    setIsConfirmDeleteOpen(false);
     try {
       const token = localStorage.getItem('auth_token');
-      await api.delete(`/users/${mobile_number}`, {
+      await api.delete(`/users/${userToDelete.mobile_number}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       toast.success('User deleted successfully!');
-      // Refresh users list (cache-busted)
       await fetchUsers();
       setPage(1);
+      setUserToDelete(null);
     } catch (err) {
       toast.error('Failed to delete user.');
+      setUserToDelete(null);
     }
+  };
+
+  const handleCancelDelete = () => {
+    setIsConfirmDeleteOpen(false);
+    setUserToDelete(null);
+  };
+
+  // Edit user handlers
+  const handleEditUser = (user) => {
+    setUserToEdit(user);
+    setEditFormData({
+      mobile_number: user.mobile_number || '',
+      role: user.role || '',
+      sector_id: user.sector_id || '',
+      army_unit_id: user.army_unit_id || ''
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditFormChange = (field, value) => {
+    setEditFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveEdit = async () => {
+    if (!userToEdit) return;
+    setEditLoading(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      await api.put(`/users/${userToEdit.mobile_number}`, editFormData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success('User updated successfully!');
+      setIsEditModalOpen(false);
+      setUserToEdit(null);
+      await fetchUsers();
+      setEditLoading(false);
+    } catch (err) {
+      const apiError = err?.response?.data?.error;
+      toast.error(apiError || 'Failed to update user.');
+      setEditLoading(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditModalOpen(false);
+    setUserToEdit(null);
+    setEditFormData({ mobile_number: '', role: '', sector_id: '', army_unit_id: '' });
   };
 
   // Fetch sectors for dropdown
   useEffect(() => {
-    if (showModal) {
+    if (showModal || isEditModalOpen) {
       const fetchSectors = async () => {
         try {
           const token = localStorage.getItem('auth_token');
@@ -119,7 +179,7 @@ const UsersList = () => {
       };
       fetchSectors();
     }
-  }, [showModal]);
+  }, [showModal, isEditModalOpen]);
 
   const handleOpenModal = () => {
     setShowModal(true);
@@ -278,6 +338,28 @@ const UsersList = () => {
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  // Fetch army units when sector is selected
+  useEffect(() => {
+    const sectorId = showModal ? newUser.sector_id : (isEditModalOpen ? editFormData.sector_id : null);
+    if (sectorId) {
+      const fetchArmyUnits = async () => {
+        try {
+          const token = localStorage.getItem('auth_token');
+          const res = await api.get(`/army-units/by-sector/${sectorId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          setArmyUnits(res.data.army_units || []);
+        } catch (err) {
+          console.error('Failed to fetch army units:', err);
+          setArmyUnits([]);
+        }
+      };
+      fetchArmyUnits();
+    } else {
+      setArmyUnits([]);
+    }
+  }, [newUser.sector_id, editFormData.sector_id, showModal, isEditModalOpen]);
 
   // Filter users by date range, mobile number, and role
   useEffect(() => {
@@ -612,7 +694,7 @@ const UsersList = () => {
                             <button
                               className="inline-flex items-center justify-center p-2 rounded hover:bg-red-100"
                               title="Delete"
-                              onClick={() => handleDeleteUser(user.mobile_number)}
+                              onClick={() => handleDeleteUser(user)}
                             >
                               <FiTrash2 className="text-red-600 w-5 h-5" />
                             </button>
@@ -720,6 +802,169 @@ const UsersList = () => {
         </main>
       </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {isConfirmDeleteOpen && userToDelete && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            <div className="bg-gradient-to-r from-yellow-600 to-orange-500 text-white px-6 py-4 flex items-center justify-between rounded-t-xl">
+              <h2 className="text-xl font-bold">Confirm Deletion</h2>
+              <button
+                onClick={handleCancelDelete}
+                className="p-1 rounded-full hover:bg-white/20 transition"
+              >
+                <FiX className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <p className="text-gray-700 text-lg mb-2">
+                Are you sure you want to delete user <span className="font-bold text-gray-900">{userToDelete.mobile_number}</span>?
+              </p>
+              <p className="text-sm text-gray-500">
+                This action cannot be undone. The user will be permanently removed from the system.
+              </p>
+            </div>
+
+            <div className="bg-gray-50 px-6 py-4 rounded-b-xl flex gap-3">
+              <button
+                onClick={handleCancelDelete}
+                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition font-medium"
+              >
+                No, Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="flex-1 px-4 py-2 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-lg hover:from-red-700 hover:to-red-600 transition font-medium shadow"
+              >
+                Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {isEditModalOpen && userToEdit && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-500 text-white px-6 py-4 flex items-center justify-between rounded-t-xl sticky top-0">
+              <h2 className="text-xl font-bold">Edit User</h2>
+              <button
+                onClick={handleCancelEdit}
+                className="p-1 rounded-full hover:bg-white/20 transition"
+              >
+                <FiX className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Mobile Number <span className="text-red-600">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={editFormData.mobile_number}
+                  onChange={(e) => handleEditFormChange('mobile_number', e.target.value)}
+                  placeholder="Enter mobile number"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Role <span className="text-red-600">*</span>
+                </label>
+                <select
+                  value={editFormData.role}
+                  onChange={(e) => handleEditFormChange('role', e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Select Role</option>
+                  <option value="admin">Admin</option>
+                  <option value="defence officer">Defence Officer</option>
+                  <option value="army officer">Army Officer</option>
+                </select>
+              </div>
+
+              {editFormData.role && editFormData.role.toLowerCase() === 'defence officer' && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Sector <span className="text-red-600">*</span>
+                  </label>
+                  <select
+                    value={editFormData.sector_id}
+                    onChange={(e) => handleEditFormChange('sector_id', e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select Sector</option>
+                    {sectors.map(sector => (
+                      <option key={sector.id} value={sector.id}>{sector.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {editFormData.role && editFormData.role.toLowerCase() === 'army officer' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Sector <span className="text-red-600">*</span>
+                    </label>
+                    <select
+                      value={editFormData.sector_id}
+                      onChange={(e) => handleEditFormChange('sector_id', e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">Select Sector</option>
+                      {sectors.map(sector => (
+                        <option key={sector.id} value={sector.id}>{sector.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {editFormData.sector_id && (
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Army Unit <span className="text-red-600">*</span>
+                      </label>
+                      <select
+                        value={editFormData.army_unit_id}
+                        onChange={(e) => handleEditFormChange('army_unit_id', e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="">Select Army Unit</option>
+                        {armyUnits.map(unit => (
+                          <option key={unit.id} value={unit.id}>{unit.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="bg-gray-50 px-6 py-4 rounded-b-xl flex gap-3 sticky bottom-0">
+              <button
+                onClick={handleCancelEdit}
+                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition font-medium"
+                disabled={editLoading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg hover:from-blue-700 hover:to-blue-600 transition font-medium shadow disabled:opacity-50"
+                disabled={editLoading}
+              >
+                {editLoading ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Footer />
     </div>
   );

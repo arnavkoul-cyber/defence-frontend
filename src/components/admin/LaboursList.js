@@ -13,7 +13,7 @@ import api, { getImageUrl } from '../../api/api';
 import Header from '../Header';
 import Footer from '../footer';
 import AdminSidebar from './AdminSidebar';
-import { FiUsers, FiEye, FiTrash2 } from 'react-icons/fi';
+import { FiUsers, FiEye, FiTrash2, FiX } from 'react-icons/fi';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -48,6 +48,8 @@ function LaboursList() {
   const [filterEndDate, setFilterEndDate] = useState(formatDateStr(today));
   const [sectorSearch, setSectorSearch] = useState('');
   const [armyUnitSearch, setArmyUnitSearch] = useState('');
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [labourToDelete, setLabourToDelete] = useState(null);
   const [nameSearch, setNameSearch] = useState('');
 
   // Resize handling (single source of truth)
@@ -98,24 +100,37 @@ function LaboursList() {
     }
   };
 
-  const handleDeleteLabour = async (labourId) => {
+  const handleDeleteLabour = (labour) => {
+    setLabourToDelete(labour);
+    setIsConfirmDeleteOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!labourToDelete) return;
+    setIsConfirmDeleteOpen(false);
     setLoading(true);
     try {
       const token = localStorage.getItem('auth_token');
-      await api.delete(`/labour/${labourId}`, {
+      await api.delete(`/labour/${labourToDelete.id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       toast.success('Labourer deleted successfully!');
-      // ensure backend commit reflected
       setTimeout(async () => {
         await fetchLabours();
         setLoading(false);
+        setLabourToDelete(null);
       }, 500);
     } catch (err) {
       const apiError = err?.response?.data?.error;
       toast.error(apiError || 'Failed to delete labourer.');
       setLoading(false);
+      setLabourToDelete(null);
     }
+  };
+
+  const handleCancelDelete = () => {
+    setIsConfirmDeleteOpen(false);
+    setLabourToDelete(null);
   };
 
   const handleViewDetails = (labour) => {
@@ -456,7 +471,7 @@ function LaboursList() {
                                 <FiEye className="text-blue-600 w-5 h-5" />
                               </button>
                               <button
-                                onClick={() => handleDeleteLabour(labour.id)}
+                                onClick={() => handleDeleteLabour(labour)}
                                 className="inline-flex items-center justify-center p-2 rounded-lg hover:bg-red-100 transition-colors ml-2"
                                 title="Delete Labourer"
                               >
@@ -742,6 +757,47 @@ function LaboursList() {
                 className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow transition-colors"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {isConfirmDeleteOpen && labourToDelete && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            <div className="bg-gradient-to-r from-yellow-600 to-orange-500 text-white px-6 py-4 flex items-center justify-between rounded-t-xl">
+              <h2 className="text-xl font-bold">Confirm Deletion</h2>
+              <button
+                onClick={handleCancelDelete}
+                className="p-1 rounded-full hover:bg-white/20 transition"
+              >
+                <FiX className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <p className="text-gray-700 text-lg mb-2">
+                Are you sure you want to delete <span className="font-bold text-gray-900">{labourToDelete.name}</span>?
+              </p>
+              <p className="text-sm text-gray-500">
+                This action cannot be undone. The labourer will be permanently removed from the system.
+              </p>
+            </div>
+
+            <div className="bg-gray-50 px-6 py-4 rounded-b-xl flex gap-3">
+              <button
+                onClick={handleCancelDelete}
+                className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition font-medium"
+              >
+                No, Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="flex-1 px-4 py-2 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-lg hover:from-red-700 hover:to-red-600 transition font-medium shadow"
+              >
+                Yes, Delete
               </button>
             </div>
           </div>

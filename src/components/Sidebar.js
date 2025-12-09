@@ -102,7 +102,7 @@ function Sidebar({ bgColor, isOpen = true, onToggle }) {
               ) : (
                 <Link to="/unitData" className={linkClasses('/unitData')} onClick={() => window.innerWidth < 768 && onToggle()}>
                   <FiDatabase />
-                  <span>Army Unit Data</span>
+                  <span>Labour Details</span>
                 </Link>
               )}
               {isArmyDashboard && (

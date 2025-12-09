@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { FiUsers, FiMenu } from 'react-icons/fi';
+import { FiUsers, FiMenu, FiTrash2 } from 'react-icons/fi';
 import { FaMapMarkedAlt, FaUserTie } from 'react-icons/fa';
 import { GiRank3 } from 'react-icons/gi';
 
@@ -61,6 +61,10 @@ function AdminSidebar({ bgColor, isOpen = true, onToggle }) {
           <Link to="/admin/army-units" className={linkClasses('/admin/army-units')} onClick={() => window.innerWidth < 768 && onToggle()}>
             <GiRank3 />
             <span>Army Units List</span>
+          </Link>
+          <Link to="/admin/deletion-requests" className={linkClasses('/admin/deletion-requests')} onClick={() => window.innerWidth < 768 && onToggle()}>
+            <FiTrash2 />
+            <span>Deletion Requests</span>
           </Link>
         </nav>
       </div>
