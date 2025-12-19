@@ -69,7 +69,7 @@ const UsersList = () => {
   const [page, setPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [newUser, setNewUser] = useState({ mobile_number: '', role: '', sector_id: '', army_unit_id: '' });
+  const [newUser, setNewUser] = useState({ mobile_number: '', role: '', sector_id: '', army_unit_id: '' , name: ''});
   const [selectedSectorName, setSelectedSectorName] = useState('');
   const [sectors, setSectors] = useState([]);
   const [armyUnits, setArmyUnits] = useState([]);
@@ -82,6 +82,7 @@ const UsersList = () => {
   const [userToDelete, setUserToDelete] = useState(null);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchMobile, setSearchMobile] = useState('');
+  const [searchOfficerName, setSearchOfficerName] = useState('');
   const [filterRole, setFilterRole] = useState('');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState(null);
@@ -138,7 +139,12 @@ const UsersList = () => {
     setEditLoading(true);
     try {
       const token = localStorage.getItem('auth_token');
-      await api.put(`/users/${userToEdit.mobile_number}`, editFormData, {
+      // Ensure army_unit_id is null if empty string
+      const payload = {
+        ...editFormData,
+        army_unit_id: editFormData.army_unit_id === '' ? null : editFormData.army_unit_id
+      };
+      await api.put(`/users/${userToEdit.id}`, payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
       toast.success('User updated successfully!');
@@ -264,6 +270,7 @@ const UsersList = () => {
         role: newUser.role,
         sector_id,
         army_unit_id: newUser.role && newUser.role.toLowerCase() === 'army officer' ? Number(newUser.army_unit_id) : null,
+        name:newUser.name || '',
       };
       const response = await api.post('/users', payload, {
         headers: {
@@ -280,6 +287,7 @@ const UsersList = () => {
         created_at: payload.created_at,
         sector_id: payload.sector_id,
         army_unit_id: payload.army_unit_id,
+        name: payload.name,
       };
       
       // Add to the beginning of the list (newest first)
@@ -341,8 +349,13 @@ const UsersList = () => {
 
   // Fetch army units when sector is selected
   useEffect(() => {
+    const role = showModal ? newUser.role : (isEditModalOpen ? editFormData.role : null);
     const sectorId = showModal ? newUser.sector_id : (isEditModalOpen ? editFormData.sector_id : null);
-    if (sectorId) {
+    if (
+      sectorId &&
+      role &&
+      role.toLowerCase() === 'army officer'
+    ) {
       const fetchArmyUnits = async () => {
         try {
           const token = localStorage.getItem('auth_token');
@@ -355,11 +368,17 @@ const UsersList = () => {
           setArmyUnits([]);
         }
       };
-      fetchArmyUnits();
+      // fetchArmyUnits();
     } else {
       setArmyUnits([]);
     }
-  }, [newUser.sector_id, editFormData.sector_id, showModal, isEditModalOpen]);
+  }, [
+    // Only trigger fetch when sector_id or role changes, not army_unit_id
+    showModal ? newUser.sector_id : editFormData.sector_id,
+    showModal ? newUser.role : editFormData.role,
+    showModal,
+    isEditModalOpen
+  ]);
 
   // Filter users by date range, mobile number, and role
   useEffect(() => {
@@ -369,6 +388,13 @@ const UsersList = () => {
     if (searchMobile.trim()) {
       filtered = filtered.filter(user => 
         user.mobile_number && user.mobile_number.includes(searchMobile.trim())
+      );
+    }
+
+    // Filter by officer name search
+    if (searchOfficerName.trim()) {
+      filtered = filtered.filter(user =>
+        user.name && user.name.toLowerCase().includes(searchOfficerName.trim().toLowerCase())
       );
     }
 
@@ -383,16 +409,12 @@ const UsersList = () => {
     if (filterStartDate || filterEndDate) {
       filtered = filtered.filter((user) => {
         if (!user.created_at) return false;
-        
         const createdDate = new Date(user.created_at);
         const start = filterStartDate ? new Date(filterStartDate) : null;
         const end = filterEndDate ? new Date(filterEndDate) : null;
-        
-        // Set time to start of day for comparison
         if (start) start.setHours(0, 0, 0, 0);
         if (end) end.setHours(23, 59, 59, 999);
         createdDate.setHours(0, 0, 0, 0);
-        
         if (start && end) {
           return createdDate >= start && createdDate <= end;
         } else if (start) {
@@ -403,10 +425,9 @@ const UsersList = () => {
         return true;
       });
     }
-    
     setFilteredUsers(filtered);
     setPage(1); // Reset to first page when filter changes
-  }, [users, filterStartDate, filterEndDate, searchMobile, filterRole]);
+  }, [users, filterStartDate, filterEndDate, searchMobile, searchOfficerName, filterRole]);
 
   const totalPages = Math.ceil(filteredUsers.length / USERS_PER_PAGE);
   const paginatedUsers = filteredUsers.slice((page - 1) * USERS_PER_PAGE, page * USERS_PER_PAGE);
@@ -452,7 +473,15 @@ const UsersList = () => {
                     placeholder="Search mobile..."
                     value={searchMobile}
                     onChange={(e) => setSearchMobile(e.target.value)}
-                    className="border border-blue-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[160px]"
+                    className="border border-blue-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[140px]"
+                  />
+                  {/* Officer Name Search */}
+                  <input
+                    type="text"
+                    placeholder="Search officer name..."
+                    value={searchOfficerName}
+                    onChange={(e) => setSearchOfficerName(e.target.value)}
+                    className="border border-blue-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[140px]"
                   />
                   
                   {/* Role Filter */}
@@ -468,10 +497,11 @@ const UsersList = () => {
                   </select>
                   
                   {/* Clear Button */}
-                  {(searchMobile || filterRole) && (
+                  {(searchMobile || searchOfficerName || filterRole) && (
                     <button
                       onClick={() => {
                         setSearchMobile('');
+                        setSearchOfficerName('');
                         setFilterRole('');
                       }}
                       className="px-3 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm font-semibold rounded-lg transition"
@@ -516,9 +546,25 @@ const UsersList = () => {
                       type="text"
                       name="mobile_number"
                       value={newUser.mobile_number}
-                      onChange={handleInputChange}
+                      onChange={e => {
+                        // Only allow digits and max 10 characters
+                        const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        setNewUser(prev => ({ ...prev, mobile_number: value }));
+                      }}
                       className="w-full border border-blue-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
                       placeholder="Enter mobile number"
+                      maxLength={10}
+                    />
+                  </div>
+                    <div className="mb-4">
+                    <label className="block text-blue-800 font-semibold mb-1 text-sm">Officer Name</label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={newUser.name}
+                      onChange={handleInputChange}
+                      className="w-full border border-blue-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      placeholder="Enter Officer Name"
                       maxLength={10}
                     />
                   </div>
@@ -644,7 +690,9 @@ const UsersList = () => {
                 <thead className="bg-blue-100">
                   <tr>
                     <th className="px-2 py-3 text-left text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800 w-[8%]">S.No</th>
+                    <th className="px-3 py-3 text-left text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800 w-[18%]">Officer Name</th>
                     <th className="px-3 py-3 text-left text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800 w-[18%]">Mobile No</th>
+                    
                     <th className="px-3 py-3 text-left text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800 w-[15%] hidden sm:table-cell">Created At</th>
                     <th className="px-3 py-3 text-left text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800 w-[12%]">Role</th>
                     <th className="px-3 py-3 text-left text-sm font-extrabold text-blue-800 uppercase tracking-wider border-b border-blue-800 w-[20%]">Army Unit</th>
@@ -673,7 +721,9 @@ const UsersList = () => {
                     paginatedUsers.map((user, idx) => (
                       <tr key={user.id} className="transition-colors duration-150 hover:bg-blue-50">
                         <td className="px-2 py-4 text-sm font-bold text-gray-900 border-b border-blue-100">{(page - 1) * USERS_PER_PAGE + idx + 1}</td>
+                        <td className="px-3 py-4 text-sm font-bold border-b border-blue-100 break-all">{user.name}</td>
                         <td className="px-3 py-4 text-sm font-bold border-b border-blue-100 break-all">{user.mobile_number}</td>
+                        
                         <td className="px-3 py-4 text-sm font-bold border-b border-blue-100 hidden sm:table-cell">{user.created_at ? new Date(user.created_at).toLocaleDateString() : '-'}</td>
                         <td
                           className={
@@ -689,15 +739,24 @@ const UsersList = () => {
                         </td>
                         <td className="px-3 py-4 text-sm font-bold border-b border-blue-100 break-words">{getUserArmyUnitName(user)}</td>
                         <td className="px-3 py-4 text-sm font-bold border-b border-blue-100 break-words">{getUserSectorName(user)}</td>
-                        <td className="px-3 py-4 border-b border-blue-100 text-center">
+                        <td className="px-3 py-4 border-b border-blue-100 text-center flex gap-2 justify-center">
                           {user.role && user.role.toUpperCase() !== 'ADMIN' && (
-                            <button
-                              className="inline-flex items-center justify-center p-2 rounded hover:bg-red-100"
-                              title="Delete"
-                              onClick={() => handleDeleteUser(user)}
-                            >
-                              <FiTrash2 className="text-red-600 w-5 h-5" />
-                            </button>
+                            <>
+                              <button
+                                className="inline-flex items-center justify-center p-2 rounded hover:bg-blue-100"
+                                title="Edit"
+                                onClick={() => handleEditUser({ ...user, name: user.name, mobile_number: user.mobile_number })}
+                              >
+                                <FiEdit className="text-blue-600 w-5 h-5" />
+                              </button>
+                              <button
+                                className="inline-flex items-center justify-center p-2 rounded hover:bg-red-100"
+                                title="Delete"
+                                onClick={() => handleDeleteUser(user)}
+                              >
+                                <FiTrash2 className="text-red-600 w-5 h-5" />
+                              </button>
+                            </>
                           )}
                         </td>
                       </tr>
@@ -859,6 +918,18 @@ const UsersList = () => {
             </div>
 
             <div className="p-6 space-y-4">
+                            <div>
+                              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                Officer Name <span className="text-red-600">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={editFormData.name || ''}
+                                onChange={e => handleEditFormChange('name', e.target.value)}
+                                placeholder="Enter officer name"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              />
+                            </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Mobile Number <span className="text-red-600">*</span>

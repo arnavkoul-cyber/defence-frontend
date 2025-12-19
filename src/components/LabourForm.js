@@ -42,7 +42,7 @@ function LabourForm() {
   }, []);
 
   const [errors, setErrors] = useState({});
-  const MAX_FILE_SIZE_MB = 20;
+  const MAX_FILE_SIZE_MB = 1;
   const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
   const [submitting, setSubmitting] = useState(false);
   const [capturedPhoto, setCapturedPhoto] = useState(null);
@@ -661,7 +661,7 @@ function LabourForm() {
                         <div className="space-y-2">
                           <label className="text-sm font-semibold text-gray-700">Upload Aadhaar Image</label>
                           <input type="file" accept="image/*" onChange={handleAadharFile} className="w-full p-3 border-2 rounded-xl bg-white/70 md:bg-white" />
-                          <p className="text-xs text-gray-600 mt-1">Upload Aadhaar image less than 20MB</p>
+                          <p className="text-xs text-gray-600 mt-1">Upload Aadhaar image less than 1MB</p>
                           {errors.adhar_path && <p className="text-red-500 text-sm">{errors.adhar_path}</p>}
                           {formData.adhar_path && (
                             <img src={formData.adhar_path} alt="Aadhaar Preview" className="mt-2 w-40 h-28 object-cover rounded-md border" />
@@ -701,7 +701,7 @@ function LabourForm() {
                             onChange={handlePanFile} 
                             className="w-full p-3 border-2 rounded-xl bg-white/70 md:bg-white" 
                           />
-                          <p className="text-xs text-gray-600 mt-1">Upload PAN card image less than 20MB</p>
+                          <p className="text-xs text-gray-600 mt-1">Upload PAN card image less than 1MB</p>
                           {errors.pan_path && <p className="text-red-500 text-sm">{errors.pan_path}</p>}
                           {formData.pan_path && (
                             <img src={formData.pan_path} alt="PAN Preview" className="mt-2 w-40 h-28 object-cover rounded-md border" />
