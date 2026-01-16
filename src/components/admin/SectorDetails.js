@@ -57,6 +57,7 @@ const SectorDetails = ({ sector, onClose }) => {
   const [selectedLabourForCalendar, setSelectedLabourForCalendar] = useState(null);
   const [attendanceDetails, setAttendanceDetails] = useState([]);
   const [calendarLoading, setCalendarLoading] = useState(false);
+  const [currentMonthIndex, setCurrentMonthIndex] = useState(0);
   
   // Individual labour details modal state
   const [showLabourDetailsModal, setShowLabourDetailsModal] = useState(false);
@@ -354,15 +355,53 @@ const SectorDetails = ({ sector, onClose }) => {
     
     const dateStr = date.toISOString().split('T')[0];
     return attendanceDetails.some(record => {
-      if (!record || !record.date) return false;
+      if (!record || !record.attendance_date) return false;
       try {
-        const recordDate = new Date(record.date);
+        const recordDate = new Date(record.attendance_date);
         if (isNaN(recordDate.getTime())) return false;
         return recordDate.toISOString().split('T')[0] === dateStr;
       } catch (err) {
         return false;
       }
     });
+  };
+
+  // Generate calendar dates from attendance records
+  const generateCalendarDatesFromAttendance = () => {
+    if (!attendanceDetails || attendanceDetails.length === 0) return [];
+    
+    // Get all unique dates from attendance records
+    const dateSet = new Set();
+    attendanceDetails.forEach(record => {
+      if (record && record.attendance_date) {
+        try {
+          const d = new Date(record.attendance_date);
+          if (!isNaN(d.getTime())) {
+            dateSet.add(d.toISOString().split('T')[0]);
+          }
+        } catch (err) {
+          // Skip invalid dates
+        }
+      }
+    });
+    
+    // Convert to array and sort
+    const sortedDates = Array.from(dateSet).sort();
+    if (sortedDates.length === 0) return [];
+    
+    // Get the full date range from first to last attendance
+    const firstDate = new Date(sortedDates[0]);
+    const lastDate = new Date(sortedDates[sortedDates.length - 1]);
+    
+    // Generate all dates in the range
+    const dates = [];
+    const current = new Date(firstDate);
+    while (current <= lastDate) {
+      dates.push(new Date(current));
+      current.setDate(current.getDate() + 1);
+    }
+    
+    return dates;
   };
 
   // Handle viewing individual labour details
@@ -1000,9 +1039,9 @@ const SectorDetails = ({ sector, onClose }) => {
                     <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-indigo-200 border-t-indigo-700 shadow-lg"></div>
                     <p className="mt-6 text-gray-600 font-semibold text-lg">Loading calendar...</p>
                   </div>
-                ) : !selectedLabourForCalendar.start_date || !selectedLabourForCalendar.end_date ? (
+                ) : attendanceDetails.length === 0 ? (
                   <div className="text-center py-16 bg-yellow-50 rounded-xl border-2 border-yellow-200">
-                    <div className="text-yellow-700 font-bold text-lg">No start/end date assigned for this labourer</div>
+                    <div className="text-yellow-700 font-bold text-lg">No attendance records found for this labourer</div>
                   </div>
                 ) : (
                   <>
@@ -1018,20 +1057,56 @@ const SectorDetails = ({ sector, onClose }) => {
                       </div>
                     </div>
 
-                    {/* Calendar Grids by Month */}
+                    {/* Calendar Grids by Month with Navigation */}
                     {(() => {
-                      const allDates = generateCalendarDates(
-                        selectedLabourForCalendar.start_date,
-                        selectedLabourForCalendar.end_date
-                      );
+                      const allDates = generateCalendarDatesFromAttendance();
                       const monthGroups = groupDatesByMonth(allDates);
+                      
+                      if (monthGroups.length === 0) {
+                        return (
+                          <div className="text-center py-8 text-gray-500">
+                            No attendance dates to display
+                          </div>
+                        );
+                      }
+                      
+                      // Ensure currentMonthIndex is within bounds
+                      const safeMonthIndex = Math.max(0, Math.min(currentMonthIndex, monthGroups.length - 1));
+                      const monthGroup = monthGroups[safeMonthIndex];
 
-                      return monthGroups.map((monthGroup, monthIdx) => (
-                        <div key={monthIdx} className="mb-8">
-                          {/* Month Header */}
-                          <h4 className="text-xl font-extrabold text-indigo-900 mb-4 text-center bg-indigo-50 py-2 rounded-lg">
-                            {monthGroup.name}
-                          </h4>
+                      return (
+                        <div className="mb-8">
+                          {/* Month Navigation Header */}
+                          <div className="flex items-center justify-between mb-4 bg-indigo-50 py-3 px-4 rounded-lg">
+                            <button
+                              onClick={() => setCurrentMonthIndex(prev => Math.max(0, prev - 1))}
+                              disabled={safeMonthIndex === 0}
+                              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${
+                                safeMonthIndex === 0
+                                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                  : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md'
+                              }`}
+                            >
+                              ◀ Prev
+                            </button>
+                            <h4 className="text-xl font-extrabold text-indigo-900 text-center">
+                              {monthGroup.name}
+                              <span className="ml-2 text-sm font-normal text-indigo-600">
+                                ({safeMonthIndex + 1} of {monthGroups.length})
+                              </span>
+                            </h4>
+                            <button
+                              onClick={() => setCurrentMonthIndex(prev => Math.min(monthGroups.length - 1, prev + 1))}
+                              disabled={safeMonthIndex === monthGroups.length - 1}
+                              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${
+                                safeMonthIndex === monthGroups.length - 1
+                                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                  : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md'
+                              }`}
+                            >
+                              Next ▶
+                            </button>
+                          </div>
                           
                           <div className="grid grid-cols-7 gap-2">
                             {/* Day headers */}
@@ -1078,7 +1153,7 @@ const SectorDetails = ({ sector, onClose }) => {
                             })()}
                           </div>
                         </div>
-                      ));
+                      );
                     })()}
 
                     {/* Summary */}
@@ -1086,21 +1161,29 @@ const SectorDetails = ({ sector, onClose }) => {
                       <h4 className="font-extrabold text-indigo-900 mb-3 text-lg">Summary</h4>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
                         <div className="bg-white p-3 rounded-lg shadow-sm">
-                          <span className="font-bold text-gray-600 block text-xs uppercase">Start Date</span>
+                          <span className="font-bold text-gray-600 block text-xs uppercase">Total Attendance Records</span>
                           <span className="text-indigo-800 font-bold">
-                            {new Date(selectedLabourForCalendar.start_date).toLocaleDateString('en-GB')}
+                            {attendanceDetails.length}
                           </span>
                         </div>
                         <div className="bg-white p-3 rounded-lg shadow-sm">
-                          <span className="font-bold text-gray-600 block text-xs uppercase">End Date</span>
+                          <span className="font-bold text-gray-600 block text-xs uppercase">First Attendance</span>
                           <span className="text-indigo-800 font-bold">
-                            {new Date(selectedLabourForCalendar.end_date).toLocaleDateString('en-GB')}
+                            {attendanceDetails.length > 0 ? 
+                              new Date(attendanceDetails.reduce((min, r) => 
+                                new Date(r.attendance_date) < new Date(min.attendance_date) ? r : min
+                              ).attendance_date).toLocaleDateString('en-GB') : '-'
+                            }
                           </span>
                         </div>
                         <div className="bg-white p-3 rounded-lg shadow-sm">
-                          <span className="font-bold text-gray-600 block text-xs uppercase">Working Days</span>
-                          <span className="text-green-600 font-bold text-lg">
-                            {selectedLabourForCalendar.working_days || 0}
+                          <span className="font-bold text-gray-600 block text-xs uppercase">Last Attendance</span>
+                          <span className="text-green-600 font-bold">
+                            {attendanceDetails.length > 0 ? 
+                              new Date(attendanceDetails.reduce((max, r) => 
+                                new Date(r.attendance_date) > new Date(max.attendance_date) ? r : max
+                              ).attendance_date).toLocaleDateString('en-GB') : '-'
+                            }
                           </span>
                         </div>
                       </div>

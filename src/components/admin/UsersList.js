@@ -84,6 +84,7 @@ const UsersList = () => {
   const [searchMobile, setSearchMobile] = useState('');
   const [searchOfficerName, setSearchOfficerName] = useState('');
   const [filterRole, setFilterRole] = useState('');
+  const [searchArmyUnitName, setSearchArmyUnitName] = useState('');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState(null);
   const [editFormData, setEditFormData] = useState({ mobile_number: '', role: '', sector_id: '', army_unit_id: '' });
@@ -398,6 +399,14 @@ const UsersList = () => {
       );
     }
 
+    // Filter by army unit name search
+    if (searchArmyUnitName.trim()) {
+      filtered = filtered.filter(user => {
+        const armyUnitName = getUserArmyUnitName(user);
+        return armyUnitName && armyUnitName.toLowerCase().includes(searchArmyUnitName.trim().toLowerCase());
+      });
+    }
+
     // Filter by role
     if (filterRole) {
       filtered = filtered.filter(user => 
@@ -427,7 +436,7 @@ const UsersList = () => {
     }
     setFilteredUsers(filtered);
     setPage(1); // Reset to first page when filter changes
-  }, [users, filterStartDate, filterEndDate, searchMobile, searchOfficerName, filterRole]);
+  }, [users, filterStartDate, filterEndDate, searchMobile, searchOfficerName, searchArmyUnitName, filterRole]);
 
   const totalPages = Math.ceil(filteredUsers.length / USERS_PER_PAGE);
   const paginatedUsers = filteredUsers.slice((page - 1) * USERS_PER_PAGE, page * USERS_PER_PAGE);
@@ -483,6 +492,14 @@ const UsersList = () => {
                     onChange={(e) => setSearchOfficerName(e.target.value)}
                     className="border border-blue-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[140px]"
                   />
+                  {/* Army Unit Name Search */}
+                  <input
+                    type="text"
+                    placeholder="Search army unit name..."
+                    value={searchArmyUnitName}
+                    onChange={(e) => setSearchArmyUnitName(e.target.value)}
+                    className="border border-blue-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[140px]"
+                  />
                   
                   {/* Role Filter */}
                   <select
@@ -497,11 +514,12 @@ const UsersList = () => {
                   </select>
                   
                   {/* Clear Button */}
-                  {(searchMobile || searchOfficerName || filterRole) && (
+                  {(searchMobile || searchOfficerName || searchArmyUnitName || filterRole) && (
                     <button
                       onClick={() => {
                         setSearchMobile('');
                         setSearchOfficerName('');
+                        setSearchArmyUnitName('');
                         setFilterRole('');
                       }}
                       className="px-3 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm font-semibold rounded-lg transition"

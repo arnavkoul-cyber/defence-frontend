@@ -21,6 +21,13 @@ const Attendance = () => {
   const canvasRefs = useRef({});
   const [locationData, setLocationData] = useState({}); // { [labourId]: { lat, lng, accuracy, timestamp } }
 
+  // Search filter states
+  const [searchName, setSearchName] = useState('');
+  const [searchMobile, setSearchMobile] = useState('');
+  
+  // Camera facing mode: 'user' for front, 'environment' for back
+  const [cameraFacing, setCameraFacing] = useState({}); // { [labourId]: 'user' | 'environment' }
+
   // Date filter state for attendance fetch
   const todayObj = new Date();
   const yyyy = todayObj.getFullYear();
@@ -36,18 +43,17 @@ const Attendance = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const mobile = localStorage.getItem('mobile_number');
         const unitId = localStorage.getItem('army_unit_id');
-        // Use POST for attendance fetch
+        // Use /labour/army-unit to get all labours assigned to this army unit
         const [labourRes, attendanceRes] = await Promise.all([
-          api.get(`/labour/assigned/${mobile}`),
+          api.get(`/labour/army-unit/${unitId}`),
           api.post('/attendance/army', {
             army_unit_id: unitId,
             startDate: filterStartDate,
             endDate: filterEndDate
           })
         ]);
-        const labourList = labourRes.data.labours || [];
+        const labourList = labourRes.data.labourers || [];
         setLabours(labourList);
         setCurrentPage(1);
         // Build attendance map for today (show present/absent for each day in range)
@@ -69,20 +75,51 @@ const Attendance = () => {
     fetchData();
   }, [filterStartDate, filterEndDate]);
 
-  const handleOpenCamera = (labourId) => {
-    setShowCamera(prev => ({ ...prev, [labourId]: true }));
-  // Try to fetch location early so it's ready by the time of capture
-  getLocationForLabour(labourId);
-    setTimeout(async () => {
+  // Helper to start camera with specific facing mode
+  const startCameraWithFacing = async (labourId, facingMode = 'environment') => {
+    // Stop any existing stream first
+    if (videoRefs.current[labourId]?.srcObject) {
+      videoRefs.current[labourId].srcObject.getTracks().forEach(track => track.stop());
+    }
+    
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: facingMode }
+      });
       if (videoRefs.current[labourId]) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          videoRefs.current[labourId].srcObject = stream;
-        } catch (err) {
-          // handle error
-        }
+        videoRefs.current[labourId].srcObject = stream;
       }
+    } catch (err) {
+      // Fallback if specific camera not available
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        if (videoRefs.current[labourId]) {
+          videoRefs.current[labourId].srcObject = stream;
+        }
+      } catch (fallbackErr) {
+        console.error('Camera access failed:', fallbackErr);
+      }
+    }
+  };
+
+  const handleOpenCamera = (labourId) => {
+    // Default to back camera (environment) for attendance photos
+    const defaultFacing = cameraFacing[labourId] || 'environment';
+    setCameraFacing(prev => ({ ...prev, [labourId]: defaultFacing }));
+    setShowCamera(prev => ({ ...prev, [labourId]: true }));
+    // Try to fetch location early so it's ready by the time of capture
+    getLocationForLabour(labourId);
+    setTimeout(() => {
+      startCameraWithFacing(labourId, defaultFacing);
     }, 100);
+  };
+
+  // Switch between front and back camera
+  const handleSwitchCamera = (labourId) => {
+    const currentFacing = cameraFacing[labourId] || 'environment';
+    const newFacing = currentFacing === 'environment' ? 'user' : 'environment';
+    setCameraFacing(prev => ({ ...prev, [labourId]: newFacing }));
+    startCameraWithFacing(labourId, newFacing);
   };
 
   const handleCapturePhoto = (labourId) => {
@@ -190,9 +227,16 @@ const Attendance = () => {
 
   // 'today' defined above
 
+  // Filter labours by search name and mobile
+  const filteredLabours = labours.filter(labour => {
+    const nameMatch = !searchName || labour.name?.toLowerCase().includes(searchName.toLowerCase());
+    const mobileMatch = !searchMobile || labour.contact_number?.includes(searchMobile);
+    return nameMatch && mobileMatch;
+  });
+
   // Pagination
-  const totalPages = Math.ceil(labours.length / entriesPerPage) || 1;
-  const paginatedLabours = labours.slice((currentPage - 1) * entriesPerPage, currentPage * entriesPerPage);
+  const totalPages = Math.ceil(filteredLabours.length / entriesPerPage) || 1;
+  const paginatedLabours = filteredLabours.slice((currentPage - 1) * entriesPerPage, currentPage * entriesPerPage);
 
   // Get theme colors
   const themeColors = getThemeColors();
@@ -243,25 +287,67 @@ const Attendance = () => {
           </div>
           <div className={`mt-2 h-1.5 w-28 ${gradientTextClass.includes('green') ? 'bg-gradient-to-r from-green-600 to-emerald-500' : gradientTextClass.includes('gray') ? 'bg-gradient-to-r from-gray-700 to-gray-500' : 'bg-gradient-to-r from-blue-600 to-sky-500'} rounded-full`}></div>
         </div>
-        {/* Date Filter Row */}
-        <div className="flex flex-wrap gap-2 items-center mt-2 mb-4">
-          <label className="font-medium text-gray-600">From:</label>
-          <input
-            type="date"
-            className="border rounded px-2 py-1"
-            value={filterStartDate}
-            max={filterEndDate}
-            onChange={e => setFilterStartDate(e.target.value)}
-          />
-          <label className="font-medium text-gray-600 ml-2">To:</label>
-          <input
-            type="date"
-            className="border rounded px-2 py-1"
-            value={filterEndDate}
-            min={filterStartDate}
-            max={todayStr}
-            onChange={e => setFilterEndDate(e.target.value)}
-          />
+        {/* Filter Row - Date and Search */}
+        <div className="mb-6 bg-white rounded-xl shadow-md p-4 border border-gray-200">
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Search by Name */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-semibold text-gray-700">Name:</label>
+              <input
+                type="text"
+                value={searchName}
+                onChange={(e) => { setSearchName(e.target.value); setCurrentPage(1); }}
+                placeholder="Search by name..."
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-40"
+              />
+            </div>
+            {/* Search by Mobile */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-semibold text-gray-700">Mobile:</label>
+              <input
+                type="text"
+                value={searchMobile}
+                onChange={(e) => { setSearchMobile(e.target.value); setCurrentPage(1); }}
+                placeholder="Search by mobile..."
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-40"
+              />
+            </div>
+            {/* Date Filters */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-semibold text-gray-700">From:</label>
+              <input
+                type="date"
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={filterStartDate}
+                max={filterEndDate}
+                onChange={e => setFilterStartDate(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-semibold text-gray-700">To:</label>
+              <input
+                type="date"
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={filterEndDate}
+                min={filterStartDate}
+                max={todayStr}
+                onChange={e => setFilterEndDate(e.target.value)}
+              />
+            </div>
+            {/* Clear Filter Button */}
+            {(searchName || searchMobile) && (
+              <button
+                onClick={() => { setSearchName(''); setSearchMobile(''); setCurrentPage(1); }}
+                className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white text-sm font-semibold rounded-lg transition"
+              >
+                Clear Filter
+              </button>
+            )}
+            {/* Results Count */}
+            <div className="ml-auto text-sm text-gray-600">
+              Showing <span className="font-bold text-blue-600">{filteredLabours.length}</span> of <span className="font-bold">{labours.length}</span> labourers
+            </div>
+          </div>
         </div>
         <div className="bg-white rounded-xl shadow-lg p-4 hidden md:block">
           <table className="min-w-full divide-y divide-gray-200">
@@ -308,9 +394,16 @@ const Attendance = () => {
                     ) : showCamera[labour.id] ? (
                       <div className="flex flex-col items-center gap-2">
                         <video ref={el => (videoRefs.current[labour.id] = el)} autoPlay className="rounded border w-32 h-24 object-cover" />
-                        <div className="flex gap-2">
-                          <button className="bg-green-600 text-white px-3 py-1 rounded" onClick={() => handleCapturePhoto(labour.id)}>Take Photo</button>
-                          <button className="bg-gray-400 text-white px-3 py-1 rounded" onClick={() => handleCloseCamera(labour.id)}>Cancel</button>
+                        <div className="flex gap-2 flex-wrap justify-center">
+                          <button className="bg-green-600 text-white px-3 py-1 rounded text-sm" onClick={() => handleCapturePhoto(labour.id)}>Take Photo</button>
+                          <button 
+                            className="bg-blue-500 text-white px-3 py-1 rounded text-sm flex items-center gap-1" 
+                            onClick={() => handleSwitchCamera(labour.id)}
+                            title="Switch Camera"
+                          >
+                            🔄 {cameraFacing[labour.id] === 'user' ? 'Front' : 'Back'}
+                          </button>
+                          <button className="bg-gray-400 text-white px-3 py-1 rounded text-sm" onClick={() => handleCloseCamera(labour.id)}>Cancel</button>
                         </div>
                         <canvas ref={el => (canvasRefs.current[labour.id] = el)} style={{ display: 'none' }} />
                       </div>
@@ -378,8 +471,15 @@ const Attendance = () => {
                   ) : showCamera[labour.id] ? (
                     <>
                       <video ref={el => (videoRefs.current[labour.id] = el)} autoPlay className="rounded border w-28 h-20 object-cover" />
-                      <div className="flex gap-2">
+                      <div className="flex gap-1 flex-wrap justify-center">
                         <button className="bg-green-600 text-white px-2 py-1 rounded text-xs" onClick={() => handleCapturePhoto(labour.id)}>Snap</button>
+                        <button 
+                          className="bg-blue-500 text-white px-2 py-1 rounded text-xs" 
+                          onClick={() => handleSwitchCamera(labour.id)}
+                          title="Switch Camera"
+                        >
+                          🔄
+                        </button>
                         <button className="bg-gray-400 text-white px-2 py-1 rounded text-xs" onClick={() => handleCloseCamera(labour.id)}>X</button>
                       </div>
                       <canvas ref={el => (canvasRefs.current[labour.id] = el)} style={{ display: 'none' }} />
@@ -398,10 +498,10 @@ const Attendance = () => {
               </div>
             </div>
           ))}
-          {labours.length === 0 && (
+          {filteredLabours.length === 0 && (
             <div className="text-center text-gray-500 py-8 bg-white rounded-md border">No labours found.</div>
           )}
-          {labours.length > entriesPerPage && (
+          {filteredLabours.length > entriesPerPage && (
             <div className="flex items-center justify-center gap-3 pt-1">
               <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
@@ -417,7 +517,7 @@ const Attendance = () => {
             </div>
           )}
         </div>
-        {labours.length > entriesPerPage && (
+        {filteredLabours.length > entriesPerPage && (
           <div className="flex items-center justify-center mt-6 space-x-4">
             <button
               onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}

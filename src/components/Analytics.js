@@ -57,16 +57,16 @@ function Analytics() {
     const init = async () => {
       if (isArmyDashboard) {
         try {
-          const mobile = localStorage.getItem('mobile_number');
+          // Use /labour/army-unit to get all labours assigned to this army unit
           const [labourRes, attendanceRes] = await Promise.all([
-            api.get(`/labour/assigned/${mobile}`),
+            api.get(`/labour/army-unit/${armyUnitId}`),
             api.post('/attendance/army', {
               army_unit_id: armyUnitId,
               startDate: filterStartDate,
               endDate: filterEndDate
             })
           ]);
-          const assigned = labourRes.data.labours || [];
+          const assigned = labourRes.data.labourers || [];
           setLabours(assigned);
           const records = (attendanceRes.data && attendanceRes.data.attendances) || [];
           // Build present set for today

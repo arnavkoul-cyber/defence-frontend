@@ -128,6 +128,9 @@ function Dashboard() {
   const [decisionRemarks, setDecisionRemarks] = useState('');
   // Follow-up date modal state
   const [isDateModalOpen, setIsDateModalOpen] = useState(false);
+  // View Details modal state for Army Dashboard
+  const [isViewDetailsModalOpen, setIsViewDetailsModalOpen] = useState(false);
+  const [viewDetailsLabour, setViewDetailsLabour] = useState(null);
   const [assignDate, setAssignDate] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -217,6 +220,12 @@ function Dashboard() {
     setSelectedLabour(labour);
     setDecisionRemarks('');
     setIsDecisionModalOpen(true);
+  };
+
+  // Open View Details modal for Army Dashboard
+  const handleViewDetails = (labour) => {
+    setViewDetailsLabour(labour);
+    setIsViewDetailsModalOpen(true);
   };
 
   // Accept -> close decision modal and open assign modal
@@ -529,6 +538,7 @@ function Dashboard() {
                   <>
                     <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">PAN Number</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">PAN Path</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase">Actions</th>
                   </>
                 )}
                 {!isArmyDashboard && (
@@ -624,6 +634,14 @@ function Dashboard() {
                           <td className="px-6 py-4">{labour.pan_path ? (
                             <a href={getImageUrl(labour.pan_path)} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">View</a>
                           ) : '—'}</td>
+                          <td className="px-6 py-4">
+                            <button
+                              onClick={() => handleViewDetails(labour)}
+                              className="px-3 py-1 rounded-full shadow-sm transition text-white bg-blue-600 hover:bg-blue-700"
+                            >
+                              View Details
+                            </button>
+                          </td>
                         </>
                       )}
                       {!isArmyDashboard && (
@@ -712,6 +730,12 @@ function Dashboard() {
                         ) : '—'}
                       </span>
                       <span className="text-xs text-gray-700">PAN Path: {labour.pan_path ? (<a href={getImageUrl(labour.pan_path)} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">View</a>) : '—'}</span>
+                      <button
+                        onClick={() => handleViewDetails(labour)}
+                        className="mt-2 px-3 py-1 text-xs rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 w-fit"
+                      >
+                        View Details
+                      </button>
                     </div>
                   )}
                   {!isArmyDashboard && (
@@ -885,6 +909,172 @@ function Dashboard() {
                   className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded"
                 >
                   Accept
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* View Details Modal for Army Dashboard */}
+        {isViewDetailsModalOpen && viewDetailsLabour && (
+          <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              {/* Modal Header */}
+              <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 rounded-t-2xl">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold">Labour Details</h3>
+                  <button
+                    onClick={() => {
+                      setIsViewDetailsModalOpen(false);
+                      setViewDetailsLabour(null);
+                    }}
+                    className="text-white hover:text-gray-200 text-2xl font-bold"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+              
+              {/* Modal Body */}
+              <div className="p-6 space-y-6">
+                {/* Photo and Basic Info */}
+                <div className="flex items-start gap-4">
+                  <img
+                    src={viewDetailsLabour.photo_path ? getImageUrl(viewDetailsLabour.photo_path) : noPhoto}
+                    alt="Labour"
+                    className="w-24 h-24 object-cover rounded-lg shadow-md border-2 border-blue-100"
+                    onError={e => { e.currentTarget.src = noPhoto; }}
+                  />
+                  <div>
+                    <h4 className="text-xl font-bold text-gray-800">{viewDetailsLabour.name}</h4>
+                    <p className="text-sm text-gray-500 mt-1">Father: {viewDetailsLabour.father_name || '—'}</p>
+                    <p className="text-sm text-gray-500">Labour Type: <span className="font-medium text-blue-600">{viewDetailsLabour.labour_type || '—'}</span></p>
+                  </div>
+                </div>
+
+                {/* Contact Information */}
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                  <h5 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                    Contact Information
+                  </h5>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-xs text-gray-500">Contact Number</p>
+                      <p className="text-sm font-medium text-gray-800">{viewDetailsLabour.contact_number || '—'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Identity Documents */}
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                  <h5 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                    Identity Documents
+                  </h5>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-xs text-gray-500">Aadhaar Number</p>
+                      <p className="text-sm font-medium text-gray-800">{viewDetailsLabour.aadhaar_number || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Aadhaar Document</p>
+                      {viewDetailsLabour.adhar_path ? (
+                        <a href={getImageUrl(viewDetailsLabour.adhar_path)} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 underline hover:text-blue-800">View Aadhaar</a>
+                      ) : <p className="text-sm text-gray-400">—</p>}
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">PAN Number</p>
+                      <p className="text-sm font-medium text-gray-800">{viewDetailsLabour.pan_number || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">PAN Document</p>
+                      {viewDetailsLabour.pan_path ? (
+                        <a href={getImageUrl(viewDetailsLabour.pan_path)} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 underline hover:text-blue-800">View PAN</a>
+                      ) : <p className="text-sm text-gray-400">—</p>}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bank Details */}
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                  <h5 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
+                    Bank Details
+                  </h5>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-xs text-gray-500">Bank Name</p>
+                      <p className="text-sm font-medium text-gray-800">{viewDetailsLabour.bank_name || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Account Number</p>
+                      <p className="text-sm font-medium text-gray-800">{viewDetailsLabour.bank_account_no || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">IFSC Code</p>
+                      <p className="text-sm font-medium text-gray-800">{viewDetailsLabour.bank_ifsc_code || '—'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Assignment Details */}
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                  <h5 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                    Assignment Details
+                  </h5>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-xs text-gray-500">Start Date</p>
+                      <p className="text-sm font-medium text-gray-800">
+                        {viewDetailsLabour.start_date ? new Date(viewDetailsLabour.start_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">End Date</p>
+                      <p className="text-sm font-medium text-gray-800">
+                        {viewDetailsLabour.end_date ? new Date(viewDetailsLabour.end_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Assigned Date</p>
+                      <p className="text-sm font-medium text-gray-800">
+                        {viewDetailsLabour.assigned_date ? new Date(viewDetailsLabour.assigned_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Created At</p>
+                      <p className="text-sm font-medium text-gray-800">
+                        {viewDetailsLabour.created_at ? new Date(viewDetailsLabour.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status */}
+                <div className="flex items-center justify-between bg-blue-50 rounded-xl p-4 border border-blue-200">
+                  <div>
+                    <p className="text-xs text-gray-500">Status</p>
+                    <p className="text-sm font-semibold text-blue-700">{viewDetailsLabour.status || 'Active'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Labour ID</p>
+                    <p className="text-sm font-semibold text-blue-700">#{viewDetailsLabour.id}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="sticky bottom-0 bg-white px-6 py-4 border-t border-gray-200 rounded-b-2xl">
+                <button
+                  onClick={() => {
+                    setIsViewDetailsModalOpen(false);
+                    setViewDetailsLabour(null);
+                  }}
+                  className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition"
+                >
+                  Close
                 </button>
               </div>
             </div>
