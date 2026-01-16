@@ -28,13 +28,13 @@ export default function Login() {
     setOtpLoading(true);
     try {
       const payload = {
-        username: "jkitd-defencelab",
-        password: "Admin@123#",
-        message: "Your OTP is {#var#}. Don’t share this code with anyone for security reasons. JKGOVT",
-        senderId: "JKGOVT",
+        // username: "jkitd-defencelab",
+        // password: "Admin@123#",
+        // message: "Your OTP is {#var#}. Don’t share this code with anyone for security reasons. JKGOVT",
+        // senderId: "JKGOVT",
         mobileNumber: mobile,
-        secureKey: "d2e842de-5d91-40dd-8934-5b3490319dce",
-        templateid: "1007846228194565779"
+        // secureKey: "d2e842de-5d91-40dd-8934-5b3490319dce",
+        // templateid: "1007846228194565779"
       };
       await api.post('/sms/otp', payload);
       toast.success('OTP sent successfully!', { position: 'top-center', autoClose: 2000 });
